@@ -3,11 +3,11 @@
   <title>ETERMERA</title>
   
   
-  <link href="http://example.com/atom.xml" rel="self"/>
+  <link href="https://etermrea.github.io/atom.xml" rel="self"/>
   
-  <link href="http://example.com/"/>
+  <link href="https://etermrea.github.io/"/>
   <updated>2023-10-24T11:37:26.081Z</updated>
-  <id>http://example.com/</id>
+  <id>https://etermrea.github.io/</id>
   
   <author>
     <name>etermrea</name>
@@ -18,8 +18,8 @@
   
   <entry>
     <title>The-First-Post</title>
-    <link href="http://example.com/2023/10/24/The-First-Post/"/>
-    <id>http://example.com/2023/10/24/The-First-Post/</id>
+    <link href="https://etermrea.github.io/2023/10/24/The-First-Post/"/>
+    <id>https://etermrea.github.io/2023/10/24/The-First-Post/</id>
     <published>2023-10-24T11:28:31.000Z</published>
     <updated>2023-10-24T11:37:26.081Z</updated>
     
@@ -35,7 +35,7 @@
     
     
     
-    <category term="杂" scheme="http://example.com/tags/%E6%9D%82/"/>
+    <category term="杂" scheme="https://etermrea.github.io/tags/%E6%9D%82/"/>
     
   </entry>
   
