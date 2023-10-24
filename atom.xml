@@ -6,7 +6,7 @@
   <link href="https://etermera.github.io/atom.xml" rel="self"/>
   
   <link href="https://etermera.github.io/"/>
-  <updated>2023-10-24T12:27:39.883Z</updated>
+  <updated>2023-10-24T12:49:45.905Z</updated>
   <id>https://etermera.github.io/</id>
   
   <author>
@@ -21,9 +21,9 @@
     <link href="https://etermera.github.io/2023/10/24/The-First-Post/"/>
     <id>https://etermera.github.io/2023/10/24/The-First-Post/</id>
     <published>2023-10-24T11:28:31.000Z</published>
-    <updated>2023-10-24T12:27:39.883Z</updated>
+    <updated>2023-10-24T12:49:45.905Z</updated>
     
-    <content type="html"><![CDATA[<h2 id="开始"><a href="#开始" class="headerlink" title="开始"></a>开始</h2><p>2023年10月24日，第一次搭博客。</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">__import__</span>(<span class="string">&#x27;os&#x27;</span>).system(<span class="string">&#x27;whoami&#x27;</span>)</span><br></pre></td></tr></table></figure><img src="C:\Users\zhang\Desktop\Temp\blog\source\_posts\images\The-First-Post\1.jpg" alt="1" style="zoom:50%;" />]]></content>
+    <content type="html"><![CDATA[<h2 id="开始"><a href="#开始" class="headerlink" title="开始"></a>开始</h2><p>2023年10月24日，第一次搭博客。</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">__import__</span>(<span class="string">&#x27;os&#x27;</span>).system(<span class="string">&#x27;whoami&#x27;</span>)</span><br></pre></td></tr></table></figure><img src="/2023/10/24/The-First-Post/1.jpg" width="60%">]]></content>
     
     
       
