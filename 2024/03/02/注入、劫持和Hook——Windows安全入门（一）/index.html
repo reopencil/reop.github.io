@@ -42,9 +42,9 @@
             </div>
         </div>
         
-            <a href="/about">关于我</a>
+            <a href="/">关于我</a>
         
-            <a href="/friends">朋友们</a>
+            <a href="/">朋友们</a>
         
     </nav>
 </header>
@@ -54,13 +54,11 @@
         <section class="post-title">
             <h2>注入、劫持和Hook——Windows安全入门（一）</h2>
             <div class="post-meta">
-                <time class="date">2023.03.02</time>
+                <time class="date">2024.03.02</time>
             
             </div>
         </section>
         <article class="post-content">
-        
-            <blockquote>这篇文章上次修改于 367 天前，可能其部分内容已经发生变化，如有疑问可询问作者。</blockquote>
         
             <h2 id="1-PE注入"><a href="#1-PE注入" class="headerlink" title="1 PE注入"></a>1 PE注入</h2><p>PE注入就是对静态的PE文件进行修改，使其在运行时能够加载我们需要的构造的代码。因为都是对文件进行静态的修改，只需要处理好RVA和Offset之间的转换，保证PE完整的结构就好，相对来说比较简单。<br>此部分代码都使用Python实现，使用pefile模块对PE文件进行操作，十分方便。当然因为PE的结构就是通过头文件定义的，使用C语言也很方便。</p>
 <h3 id="1-1-寻找空洞"><a href="#1-1-寻找空洞" class="headerlink" title="1.1 寻找空洞"></a>1.1 寻找空洞</h3><p>寻找代码中的空闲区域的大小，作为PE注入前的参考。<br>参考了<em><strong>cave miner</strong></em>项目，但是我没有研究其源码，只是按照其原理通过比较节表中的 SizeOfRawData 和 Misc_VirtualSize 属性，实现了最简单的功能。</p>
@@ -121,10 +119,10 @@
         <section class="post-near">
             <ul>
                 
-                    <li>上一篇: <a href="/2023/10/24/The-First-Post/">The-First-Post</a></li>
+                    <li>上一篇: 看完啦 (つд⊂)</li>
                 
                 
-                    <li>下一篇: 看完啦 (つд⊂)</li>
+                    <li>下一篇: <a href="/2023/10/24/The-First-Post/">The-First-Post</a></li>
                 
             </ul>
         </section>
@@ -137,11 +135,11 @@
         <section class="post-author">
         
             <figure class="author-avatar">
-                <img src="https://sdn.geekzu.org/avatar/d22eb460ecab37fcd7205e6a3c55c228?s=200&r=X&d=" alt="Hingle" />
+                <img src="https://i2.hdslb.com/bfs/face/1637a1d7f76f2cef056124dfc0d3f0365b7fcd3f.jpg" alt="reop" />
             </figure>
         
             <div class="author-info">
-                <h4>Hingle</h4>
+                <h4>reop</h4>
                 <p>请在这里设置你的作者信息</p>
             </div>
         </section>
@@ -158,11 +156,11 @@
             <div class="row">
                 <div class="col-m-4">
                     <h3 class="title-recent">最新文章：</h3>
-                    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2023/10/24/The-First-Post/">The-First-Post</a></li><li class="post-list-item"><a class="post-list-link" href="/2023/03/02/%E6%B3%A8%E5%85%A5%E3%80%81%E5%8A%AB%E6%8C%81%E5%92%8CHook%E2%80%94%E2%80%94Windows%E5%AE%89%E5%85%A8%E5%85%A5%E9%97%A8%EF%BC%88%E4%B8%80%EF%BC%89/">注入、劫持和Hook——Windows安全入门（一）</a></li></ul>
+                    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2024/03/02/%E6%B3%A8%E5%85%A5%E3%80%81%E5%8A%AB%E6%8C%81%E5%92%8CHook%E2%80%94%E2%80%94Windows%E5%AE%89%E5%85%A8%E5%85%A5%E9%97%A8%EF%BC%88%E4%B8%80%EF%BC%89/">注入、劫持和Hook——Windows安全入门（一）</a></li><li class="post-list-item"><a class="post-list-link" href="/2023/10/24/The-First-Post/">The-First-Post</a></li></ul>
                 </div>
                 <div class="col-m-4">
                     <h3 class="title-date">时光机：</h3>
-                    <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2023/10/">October 2023</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2023/03/">March 2023</a></li></ul>
+                    <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/03/">March 2024</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2023/10/">October 2023</a></li></ul>
                 </div>
                 <div class="col-m-4">
                     <h3 class="title-tags">标签云：</h3>
@@ -181,7 +179,7 @@
 <script src="/static/hingle.js"></script>
 
 
-<script>var hingle = new Paul_Hingle({"copyright":true,"night":true});</script>
+<script>var hingle = new Paul_Hingle({"copyright":false,"night":true});</script>
 
   </body>
 </html>
