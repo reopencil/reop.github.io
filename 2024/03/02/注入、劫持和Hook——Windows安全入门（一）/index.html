@@ -1,180 +1,66 @@
-<!DOCTYPE html><html lang="en" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>ETERMERA | ETERMERA</title><meta name="author" content="etermrea"><meta name="copyright" content="etermrea"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="1 PE注入PE注入就是对静态的PE文件进行修改，使其在运行时能够加载我们需要的构造的代码。因为都是对文件进行静态的修改，只需要处理好RVA和Offset之间的转换，保证PE完整的结构就好，相对来说比较简单。此部分代码都使用Python实现，使用pefile模块对PE文件进行操作，十分方便。当然因为PE的结构就是通过头文件定义的，使用C语言也很方便。 1.1 寻找空洞寻找代码中的空闲区域的大小，作">
-<meta property="og:type" content="article">
-<meta property="og:title" content="ETERMERA">
-<meta property="og:url" content="https://etermera.github.io/2024/03/02/%E6%B3%A8%E5%85%A5%E3%80%81%E5%8A%AB%E6%8C%81%E5%92%8CHook%E2%80%94%E2%80%94Windows%E5%AE%89%E5%85%A8%E5%85%A5%E9%97%A8%EF%BC%88%E4%B8%80%EF%BC%89/index.html">
-<meta property="og:site_name" content="ETERMERA">
-<meta property="og:description" content="1 PE注入PE注入就是对静态的PE文件进行修改，使其在运行时能够加载我们需要的构造的代码。因为都是对文件进行静态的修改，只需要处理好RVA和Offset之间的转换，保证PE完整的结构就好，相对来说比较简单。此部分代码都使用Python实现，使用pefile模块对PE文件进行操作，十分方便。当然因为PE的结构就是通过头文件定义的，使用C语言也很方便。 1.1 寻找空洞寻找代码中的空闲区域的大小，作">
-<meta property="og:locale" content="en_US">
-<meta property="og:image" content="https://etermera.github.io/img/head.jpg">
-<meta property="article:published_time" content="2024-03-02T02:53:49.989Z">
-<meta property="article:modified_time" content="2024-03-02T02:27:33.223Z">
-<meta property="article:author" content="etermrea">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://etermera.github.io/img/head.jpg"><link rel="shortcut icon" href="/img/emoji.png"><link rel="canonical" href="https://etermera.github.io/2024/03/02/%E6%B3%A8%E5%85%A5%E3%80%81%E5%8A%AB%E6%8C%81%E5%92%8CHook%E2%80%94%E2%80%94Windows%E5%AE%89%E5%85%A8%E5%85%A5%E9%97%A8%EF%BC%88%E4%B8%80%EF%BC%89/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
-  root: '/',
-  algolia: undefined,
-  localSearch: undefined,
-  translate: undefined,
-  noticeOutdate: undefined,
-  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false},
-  copy: {
-    success: 'Copy Successful',
-    error: 'Copy Error',
-    noSupport: 'Browser Not Supported'
-  },
-  relativeDate: {
-    homepage: false,
-    post: false
-  },
-  runtime: '',
-  dateSuffix: {
-    just: 'Just now',
-    min: 'minutes ago',
-    hour: 'hours ago',
-    day: 'days ago',
-    month: 'months ago'
-  },
-  copyright: undefined,
-  lightbox: 'fancybox',
-  Snackbar: undefined,
-  infinitegrid: {
-    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid/dist/infinitegrid.min.js',
-    buttonText: 'Load More'
-  },
-  isPhotoFigcaption: false,
-  islazyload: false,
-  isAnchor: false,
-  percent: {
-    toc: true,
-    rightside: false,
-  },
-  autoDarkmode: false
-}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
-  title: 'ETERMERA',
-  isPost: true,
-  isHome: false,
-  isHighlightShrink: false,
-  isToc: true,
-  postUpdate: '2024-03-02 10:27:33'
-}</script><script>(win=>{
-      win.saveToLocal = {
-        set: (key, value, ttl) => {
-          if (ttl === 0) return
-          const now = Date.now()
-          const expiry = now + ttl * 86400000
-          const item = {
-            value,
-            expiry
-          }
-          localStorage.setItem(key, JSON.stringify(item))
-        },
-      
-        get: key => {
-          const itemStr = localStorage.getItem(key)
-      
-          if (!itemStr) {
-            return undefined
-          }
-          const item = JSON.parse(itemStr)
-          const now = Date.now()
-      
-          if (now > item.expiry) {
-            localStorage.removeItem(key)
-            return undefined
-          }
-          return item.value
-        }
-      }
+<!DOCTYPE html>
+<html>
+  <head>
+     
+    <meta charset="UTF-8">
+    <title> - REOP</title>
+    <link rel="shortcut icon" href="/static/img/icon.png">
+    <link rel="icon" href="/static/img/icon.png" sizes="192x192"/>
     
-      win.getScript = (url, attr = {}) => new Promise((resolve, reject) => {
-        const script = document.createElement('script')
-        script.src = url
-        script.async = true
-        script.onerror = reject
-        script.onload = script.onreadystatechange = function() {
-          const loadState = this.readyState
-          if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
-          script.onload = script.onreadystatechange = null
-          resolve()
-        }
+<link rel="stylesheet" href="/static/kico.css">
+<link rel="stylesheet" href="/static/hingle.css">
 
-        Object.keys(attr).forEach(key => {
-          script.setAttribute(key, attr[key])
-        })
+    
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
-        document.head.appendChild(script)
-      })
+    <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1"/>
+    <meta property="og:site_name" content="REOP">
+    <meta property="og:title" content=""/>
     
-      win.getCSS = (url, id = false) => new Promise((resolve, reject) => {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        link.href = url
-        if (id) link.id = id
-        link.onerror = reject
-        link.onload = link.onreadystatechange = function() {
-          const loadState = this.readyState
-          if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
-          link.onload = link.onreadystatechange = null
-          resolve()
-        }
-        document.head.appendChild(link)
-      })
-    
-      win.activateDarkMode = () => {
-        document.documentElement.setAttribute('data-theme', 'dark')
-        if (document.querySelector('meta[name="theme-color"]') !== null) {
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
-        }
-      }
-      win.activateLightMode = () => {
-        document.documentElement.setAttribute('data-theme', 'light')
-        if (document.querySelector('meta[name="theme-color"]') !== null) {
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
-        }
-      }
-      const t = saveToLocal.get('theme')
-    
-        if (t === 'dark') activateDarkMode()
-        else if (t === 'light') activateLightMode()
-      
-      const asideStatus = saveToLocal.get('aside-status')
-      if (asideStatus !== undefined) {
-        if (asideStatus === 'hide') {
-          document.documentElement.classList.add('hide-aside')
-        } else {
-          document.documentElement.classList.remove('hide-aside')
-        }
-      }
-    
-      const detectApple = () => {
-        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
-          document.documentElement.classList.add('apple')
-        }
-      }
-      detectApple()
-    })(window)</script><meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="ETERMERA" type="application/atom+xml">
-</head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">Loading...</div></div></div><script>(()=>{
-  const $loadingBox = document.getElementById('loading-box')
-  const $body = document.body
-  const preloader = {
-    endLoading: () => {
-      $body.style.overflow = ''
-      $loadingBox.classList.add('loaded')
-    },
-    initLoading: () => {
-      $body.style.overflow = 'hidden'
-      $loadingBox.classList.remove('loaded')
-    }
-  }
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="REOP" type="application/atom+xml">
+</head>
 
-  preloader.initLoading()
-  window.addEventListener('load',() => { preloader.endLoading() })
+  <body>
+    <header>
+    <div class="head-title">
+        <h4>REOP</h4>
+    </div>
+    <div class="head-action">
+        <div class="toggle-btn"></div>
+        <div class="light-btn"></div>
+        <div class="search-btn"></div>
+    </div>
+    <form class="head-search" method="post">
+        <input type="text" name="s" placeholder="搜索什么？">
+    </form>
+    <nav class="head-menu">
+        <a href="/">首页</a>
+        <div class="has-child">
+            <a>分类</a>
+            <div class="sub-menu">
+                
+            </div>
+        </div>
+        
+            <a href="/about">关于我</a>
+        
+            <a href="/friends">朋友们</a>
+        
+    </nav>
+</header>
 
-  if (false) {
-    document.addEventListener('pjax:send', () => { preloader.initLoading() })
-    document.addEventListener('pjax:complete', () => { preloader.endLoading() })
-  }
-})()</script><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="/img/head.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">Articles</div><div class="length-num">2</div></a><a href="/tags/"><div class="headline">Tags</div><div class="length-num">1</div></a><a href="/categories/"><div class="headline">Categories</div><div class="length-num">0</div></a></div><hr class="custom-hr"/></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="ETERMERA"><span class="site-name">ETERMERA</span></a></span><div id="menus"><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav><div id="post-info"><h1 class="post-title">Untitled</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">Created</span><time class="post-meta-date-created" datetime="2024-03-02T02:53:49.989Z" title="Created 2024-03-02 10:53:49">2024-03-02</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">Updated</span><time class="post-meta-date-updated" datetime="2024-03-02T02:27:33.223Z" title="Updated 2024-03-02 10:27:33">2024-03-02</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">Word Count:</span><span class="word-count">7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">Reading Time:</span><span>35mins</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">Post Views:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h2 id="1-PE注入"><a href="#1-PE注入" class="headerlink" title="1 PE注入"></a>1 PE注入</h2><p>PE注入就是对静态的PE文件进行修改，使其在运行时能够加载我们需要的构造的代码。因为都是对文件进行静态的修改，只需要处理好RVA和Offset之间的转换，保证PE完整的结构就好，相对来说比较简单。<br>此部分代码都使用Python实现，使用pefile模块对PE文件进行操作，十分方便。当然因为PE的结构就是通过头文件定义的，使用C语言也很方便。</p>
+    <main>
+    <div class="wrap min">
+        <section class="post-title">
+            <h2>没有标题的文章</h2>
+            <div class="post-meta">
+                <time class="date">2024.03.02</time>
+            
+            </div>
+        </section>
+        <article class="post-content">
+        
+            <h2 id="1-PE注入"><a href="#1-PE注入" class="headerlink" title="1 PE注入"></a>1 PE注入</h2><p>PE注入就是对静态的PE文件进行修改，使其在运行时能够加载我们需要的构造的代码。因为都是对文件进行静态的修改，只需要处理好RVA和Offset之间的转换，保证PE完整的结构就好，相对来说比较简单。<br>此部分代码都使用Python实现，使用pefile模块对PE文件进行操作，十分方便。当然因为PE的结构就是通过头文件定义的，使用C语言也很方便。</p>
 <h3 id="1-1-寻找空洞"><a href="#1-1-寻找空洞" class="headerlink" title="1.1 寻找空洞"></a>1.1 寻找空洞</h3><p>寻找代码中的空闲区域的大小，作为PE注入前的参考。<br>参考了<em><strong>cave miner</strong></em>项目，但是我没有研究其源码，只是按照其原理通过比较节表中的 SizeOfRawData 和 Misc_VirtualSize 属性，实现了最简单的功能。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pefile <span class="keyword">import</span> PE  </span><br><span class="line"><span class="keyword">import</span> sys  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">def</span> <span class="title function_">search_cave</span>(<span class="params">filename, minsize=<span class="number">0</span></span>):  </span><br><span class="line">    <span class="string">&quot;&quot;&quot;  </span></span><br><span class="line"><span class="string">    搜索代码空洞  </span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span>    pe = PE(filename)  </span><br><span class="line">    caves = []  </span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot;[*] FileAlign:\t<span class="subst">&#123;pe.OPTIONAL_HEADER.FileAlignment&#125;</span>Bytes&quot;</span>)  </span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot;[*] SectAlign:\t<span class="subst">&#123;pe.OPTIONAL_HEADER.SectionAlignment&#125;</span>Bytes\n&quot;</span>)  </span><br><span class="line">    <span class="comment"># 1. Cave Before Sections  </span></span><br><span class="line">    sectionDataBegin = pe.sections[<span class="number">0</span>].PointerToRawData  </span><br><span class="line">    sectionTableEnd = pe.sections[-<span class="number">1</span>].__file_offset__ + pe.sections[-<span class="number">1</span>].sizeof()  </span><br><span class="line">    caveSize = sectionDataBegin - sectionTableEnd - <span class="number">40</span>  </span><br><span class="line">    RVA = sectionTableEnd  </span><br><span class="line">    flags = <span class="number">0</span>  </span><br><span class="line">    <span class="keyword">if</span> caveSize &gt; minsize:  </span><br><span class="line">       caves.append(  </span><br><span class="line">          [<span class="string">&#x27;BEFORE &#x27;</span> + pe.sections[<span class="number">0</span>].Name.decode().rstrip(<span class="string">&#x27;\x00&#x27;</span>), sectionTableEnd + <span class="number">40</span>, sectionDataBegin, caveSize, RVA,  </span><br><span class="line">           flags])  </span><br><span class="line">    <span class="comment"># 2. Cave In Each Sections  </span></span><br><span class="line">    <span class="keyword">for</span> section <span class="keyword">in</span> pe.sections:  </span><br><span class="line">       caveSize = section.SizeOfRawData - section.Misc_VirtualSize  </span><br><span class="line">       <span class="keyword">if</span> caveSize &gt; minsize:  </span><br><span class="line">          begin = section.PointerToRawData + section.Misc_VirtualSize  </span><br><span class="line">          RVA = section.VirtualAddress + section.Misc_VirtualSize  </span><br><span class="line">          flags = (section.Characteristics &amp; <span class="number">0xf0000000</span>) &gt;&gt; <span class="number">29</span>  </span><br><span class="line">          <span class="comment"># print(flags)  </span></span><br><span class="line">          caves.append([<span class="string">&#x27;IN &#x27;</span> + section.Name.decode().rstrip(<span class="string">&#x27;\x00&#x27;</span>), begin, begin + caveSize, caveSize, RVA, flags])  </span><br><span class="line">    <span class="keyword">for</span> cave <span class="keyword">in</span> caves:  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;[+] &quot;</span> + cave[<span class="number">0</span>], end=<span class="string">&quot;:\n&quot;</span>)  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tBegin:\t&quot;</span> + <span class="built_in">hex</span>(cave[<span class="number">1</span>])[<span class="number">2</span>:], end=<span class="string">&quot;h\n&quot;</span>)  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tEnd:\t&quot;</span> + <span class="built_in">hex</span>(cave[<span class="number">2</span>])[<span class="number">2</span>:], end=<span class="string">&quot;h\n&quot;</span>)  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tSize:\t&quot;</span> + <span class="built_in">hex</span>(cave[<span class="number">3</span>])[<span class="number">2</span>:] + <span class="string">&#x27;h (&#x27;</span> + <span class="built_in">str</span>(cave[<span class="number">3</span>]) + <span class="string">&#x27;Bytes)&#x27;</span>, end=<span class="string">&quot;\n&quot;</span>)  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tRVA:\t&quot;</span> + <span class="built_in">hex</span>(cave[<span class="number">4</span>])[<span class="number">2</span>:], end=<span class="string">&quot;h\n&quot;</span>)  </span><br><span class="line">       flags = <span class="built_in">list</span>(<span class="string">&#x27;---&#x27;</span>)  </span><br><span class="line">       <span class="keyword">if</span> cave[<span class="number">5</span>] &amp; <span class="number">4</span>:  </span><br><span class="line">          flags[<span class="number">0</span>] = <span class="string">&#x27;w&#x27;</span>  </span><br><span class="line">       <span class="keyword">if</span> cave[<span class="number">5</span>] &amp; <span class="number">2</span>:  </span><br><span class="line">          flags[<span class="number">1</span>] = <span class="string">&#x27;r&#x27;</span>  </span><br><span class="line">       <span class="keyword">if</span> cave[<span class="number">5</span>] &amp; <span class="number">1</span>:  </span><br><span class="line">          flags[<span class="number">2</span>] = <span class="string">&#x27;x&#x27;</span>  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tFlags:\t&quot;</span> + <span class="string">&#x27;&#x27;</span>.join(flags), end=<span class="string">&quot;\n&quot;</span>)  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&quot;__main__&quot;</span>:  </span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(sys.argv) &lt; <span class="number">2</span>:  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;[Usage] python search.py &lt;filename&gt; [minsize]&quot;</span>)  </span><br><span class="line">       exit(<span class="number">0</span>)  </span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(sys.argv) == <span class="number">2</span>:  </span><br><span class="line">       search_cave(sys.argv[<span class="number">1</span>])  </span><br><span class="line">    <span class="keyword">else</span>:  </span><br><span class="line">       search_cave(sys.argv[<span class="number">1</span>], <span class="built_in">int</span>(sys.argv[<span class="number">2</span>]))</span><br></pre></td></tr></table></figure>
 <h3 id="1-2-注入shellcode"><a href="#1-2-注入shellcode" class="headerlink" title="1.2 注入shellcode"></a>1.2 注入shellcode</h3><p>向空洞中注入shellcode，然后修改OEP指向shellcode的入口。需要注意的是要确保注入点的节具有执行权限。</p>
@@ -209,9 +95,9 @@
 <h3 id="2-4-反射注入"><a href="#2-4-反射注入" class="headerlink" title="2.4 反射注入"></a>2.4 反射注入</h3><p>TODO</p>
 <h2 id="3-DLL劫持"><a href="#3-DLL劫持" class="headerlink" title="3 DLL劫持"></a>3 DLL劫持</h2><p>DLL劫持是在攻防中会用到的手段，在这里只探讨关于特定程序的简单DLL劫持检测，而不是对系统存在的DLL劫持风险进行检测。<br>我参考<em><strong>DLLHSC</strong></em>项目使用Python实现了简单的DLL劫持测试，没有实现Hook LoadLibrary函数进行动态检测的部分。<br>首先从注册表中获取到系统的KnownDLLs列表，凡是在此列表中存在的DLL都是无法被劫持的。<br>然后获取到程序运行后加载的所有DLL名称(不只是导入表中的，因为导入的DLL还会导入其他DLL)，同时排除掉KnownDLLs列表中已经存在的DLL以及WinSxS目录下的DLL（因为系统会对目录下的DLL加载进行安全验证）。<br>最后将准备好的payload.dll置于程序同一目录下，这个DLL会在加载时在当前目录创建一个temp文件，然后可以通过判断是否存在此文件来验证DLL是否被加载。我们不断地重命名payload.dll为已经获取到的DLL列表中的名称，如果成功创建文件则表明存在DLL劫持；如果程序崩溃则说明payload.dll可能没有实现原先DLL中的某些功能；如果程序正常启动，则认为此DLL不存在劫持。</p>
 <h3 id="3-1-获取DLL列表"><a href="#3-1-获取DLL列表" class="headerlink" title="3.1 获取DLL列表"></a>3.1 获取DLL列表</h3><p>使用psutil可以直接获取到进程加载的DLL。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">known_dlls = []  </span><br><span class="line">import_dlls = []  </span><br><span class="line">load_dlls = []  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line">def get_known_dlls():  </span><br><span class="line">    <span class="string">&quot;&quot;</span><span class="string">&quot;  </span></span><br><span class="line"><span class="string">    获取系统的KnownDlls列表  </span></span><br><span class="line"><span class="string">    :return:  </span></span><br><span class="line"><span class="string">    &quot;</span><span class="string">&quot;&quot;</span>    access_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r<span class="string">&quot;SYSTEM\CurrentControlSet\Control\Session Manager\KnownDLLs&quot;</span>)  </span><br><span class="line">    try:  </span><br><span class="line">       i = <span class="number">0</span>  </span><br><span class="line">       <span class="keyword">while</span> True:  </span><br><span class="line">          dll_name = winreg.EnumValue(access_key, i)[<span class="number">1</span>].lower()  </span><br><span class="line">          <span class="meta"># print(dll_name)  </span></span><br><span class="line">          known_dlls.append(dll_name)  </span><br><span class="line">          i += <span class="number">1</span>  </span><br><span class="line">    except Exception as e:  </span><br><span class="line">       print(<span class="string">&quot;[+] Read registry finished:&quot;</span>, e)  </span><br><span class="line">    finally:  </span><br><span class="line">       winreg.CloseKey(access_key)  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line">def get_import_dlls(fileName):  </span><br><span class="line">    <span class="string">&quot;&quot;</span><span class="string">&quot;  </span></span><br><span class="line"><span class="string">    显示导入表中可能被利用的DLL  </span></span><br><span class="line"><span class="string">    :return:  </span></span><br><span class="line"><span class="string">    &quot;</span><span class="string">&quot;&quot;</span>    pe = PE(fileName)  </span><br><span class="line">    import_table = pe.DIRECTORY_ENTRY_IMPORT  </span><br><span class="line">    <span class="keyword">for</span> i in import_table:  </span><br><span class="line">       dll_name = i.dll.decode().lower()  </span><br><span class="line">       <span class="keyword">if</span> dll_name not in known_dlls:  </span><br><span class="line">          import_dlls.append(dll_name)  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line">def get_load_dlls(pid):  </span><br><span class="line">    <span class="string">&quot;&quot;</span><span class="string">&quot;  </span></span><br><span class="line"><span class="string">    显示载入时加载的DLL  </span></span><br><span class="line"><span class="string">    :return:  </span></span><br><span class="line"><span class="string">    &quot;</span><span class="string">&quot;&quot;</span>    try:  </span><br><span class="line">       proc = psutil.Process(pid)  </span><br><span class="line">       <span class="keyword">for</span> mem in proc.memory_maps():  </span><br><span class="line">          <span class="keyword">if</span> (mem.path.endswith(<span class="string">&#x27;.dll&#x27;</span>) or mem.path.endswith(<span class="string">&#x27;.drv&#x27;</span>)) and <span class="string">&#x27;WinSxS&#x27;</span> not in mem.path:  </span><br><span class="line">             begin = mem.path.rfind(<span class="string">&#x27;\\&#x27;</span>) + <span class="number">1</span>  </span><br><span class="line">             dll_name = mem.path[begin:]  </span><br><span class="line">             <span class="keyword">if</span> dll_name not in known_dlls and dll_name not in load_dlls:  </span><br><span class="line">                load_dlls.append(dll_name)  </span><br><span class="line">    except Exception as e:  </span><br><span class="line">       print(<span class="string">&quot;[!] &quot;</span>, e)</span><br></pre></td></tr></table></figure>
-<h3 id="3-2-劫持测试"><a href="#3-2-劫持测试" class="headerlink" title="3.2 劫持测试"></a>3.2 劫持测试</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">def <span class="title function_">test_hijack</span><span class="params">(filename, dlls)</span>:  </span><br><span class="line">    &quot;&quot;&quot;  </span><br><span class="line">    使用恶意DLL进行劫持测试  </span><br><span class="line">    :<span class="keyword">return</span>:  </span><br><span class="line">    &quot;&quot;&quot;    <span class="keyword">for</span> dll in dlls:  </span><br><span class="line">       os.<span class="title function_">rename</span><span class="params">(<span class="string">&#x27;./files/payload32.dll&#x27;</span>, <span class="string">&#x27;./files/&#x27;</span>+dll)</span>  </span><br><span class="line">       proc = psutil.Popen(filename)  </span><br><span class="line">       time.sleep(<span class="number">0.5</span>)  </span><br><span class="line">       <span class="keyword">if</span> os.path.exists(<span class="string">&#x27;./temp_4396&#x27;</span>):  </span><br><span class="line">          print(f<span class="string">&quot;[+] &#123;dll&#125; for &#123;filename&#125; can be hijacked!&quot;</span>)  </span><br><span class="line">          os.remove(<span class="string">&#x27;./temp_4396&#x27;</span>)  </span><br><span class="line">       try:  </span><br><span class="line">          proc.<span class="built_in">terminate</span>()  </span><br><span class="line">       except psutil.NoSuchProcess:  </span><br><span class="line">          print(f<span class="string">&quot;[*] &#123;dll&#125; for &#123;filename&#125; may be hijacked!&quot;</span>)  </span><br><span class="line">       finally:  </span><br><span class="line">          os.rename(<span class="string">&#x27;./files/&#x27;</span>+dll, <span class="string">&#x27;./files/payload32.dll&#x27;</span>)</span><br></pre></td></tr></table></figure>
-<p>对Windows XP下的notepad.exe进行测试的结果如下：<br>![[images&#x2F;1-1.png]]</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">known_dlls = []  </span><br><span class="line">import_dlls = []  </span><br><span class="line">load_dlls = []  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">def</span> <span class="title function_">get_known_dlls</span>():  </span><br><span class="line">    <span class="string">&quot;&quot;&quot;  </span></span><br><span class="line"><span class="string">    获取系统的KnownDlls列表  </span></span><br><span class="line"><span class="string">    :return:  </span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span>    access_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, <span class="string">r&quot;SYSTEM\CurrentControlSet\Control\Session Manager\KnownDLLs&quot;</span>)  </span><br><span class="line">    <span class="keyword">try</span>:  </span><br><span class="line">       i = <span class="number">0</span>  </span><br><span class="line">       <span class="keyword">while</span> <span class="literal">True</span>:  </span><br><span class="line">          dll_name = winreg.EnumValue(access_key, i)[<span class="number">1</span>].lower()  </span><br><span class="line">          <span class="comment"># print(dll_name)  </span></span><br><span class="line">          known_dlls.append(dll_name)  </span><br><span class="line">          i += <span class="number">1</span>  </span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> e:  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;[+] Read registry finished:&quot;</span>, e)  </span><br><span class="line">    <span class="keyword">finally</span>:  </span><br><span class="line">       winreg.CloseKey(access_key)  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">def</span> <span class="title function_">get_import_dlls</span>(<span class="params">fileName</span>):  </span><br><span class="line">    <span class="string">&quot;&quot;&quot;  </span></span><br><span class="line"><span class="string">    显示导入表中可能被利用的DLL  </span></span><br><span class="line"><span class="string">    :return:  </span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span>    pe = PE(fileName)  </span><br><span class="line">    import_table = pe.DIRECTORY_ENTRY_IMPORT  </span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> import_table:  </span><br><span class="line">       dll_name = i.dll.decode().lower()  </span><br><span class="line">       <span class="keyword">if</span> dll_name <span class="keyword">not</span> <span class="keyword">in</span> known_dlls:  </span><br><span class="line">          import_dlls.append(dll_name)  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">def</span> <span class="title function_">get_load_dlls</span>(<span class="params">pid</span>):  </span><br><span class="line">    <span class="string">&quot;&quot;&quot;  </span></span><br><span class="line"><span class="string">    显示载入时加载的DLL  </span></span><br><span class="line"><span class="string">    :return:  </span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span>    <span class="keyword">try</span>:  </span><br><span class="line">       proc = psutil.Process(pid)  </span><br><span class="line">       <span class="keyword">for</span> mem <span class="keyword">in</span> proc.memory_maps():  </span><br><span class="line">          <span class="keyword">if</span> (mem.path.endswith(<span class="string">&#x27;.dll&#x27;</span>) <span class="keyword">or</span> mem.path.endswith(<span class="string">&#x27;.drv&#x27;</span>)) <span class="keyword">and</span> <span class="string">&#x27;WinSxS&#x27;</span> <span class="keyword">not</span> <span class="keyword">in</span> mem.path:  </span><br><span class="line">             begin = mem.path.rfind(<span class="string">&#x27;\\&#x27;</span>) + <span class="number">1</span>  </span><br><span class="line">             dll_name = mem.path[begin:]  </span><br><span class="line">             <span class="keyword">if</span> dll_name <span class="keyword">not</span> <span class="keyword">in</span> known_dlls <span class="keyword">and</span> dll_name <span class="keyword">not</span> <span class="keyword">in</span> load_dlls:  </span><br><span class="line">                load_dlls.append(dll_name)  </span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> e:  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;[!] &quot;</span>, e)</span><br></pre></td></tr></table></figure>
+<h3 id="3-2-劫持测试"><a href="#3-2-劫持测试" class="headerlink" title="3.2 劫持测试"></a>3.2 劫持测试</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">test_hijack</span>(<span class="params">filename, dlls</span>):  </span><br><span class="line">    <span class="string">&quot;&quot;&quot;  </span></span><br><span class="line"><span class="string">    使用恶意DLL进行劫持测试  </span></span><br><span class="line"><span class="string">    :return:  </span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span>    <span class="keyword">for</span> dll <span class="keyword">in</span> dlls:  </span><br><span class="line">       os.rename(<span class="string">&#x27;./files/payload32.dll&#x27;</span>, <span class="string">&#x27;./files/&#x27;</span>+dll)  </span><br><span class="line">       proc = psutil.Popen(filename)  </span><br><span class="line">       time.sleep(<span class="number">0.5</span>)  </span><br><span class="line">       <span class="keyword">if</span> os.path.exists(<span class="string">&#x27;./temp_4396&#x27;</span>):  </span><br><span class="line">          <span class="built_in">print</span>(<span class="string">f&quot;[+] <span class="subst">&#123;dll&#125;</span> for <span class="subst">&#123;filename&#125;</span> can be hijacked!&quot;</span>)  </span><br><span class="line">          os.remove(<span class="string">&#x27;./temp_4396&#x27;</span>)  </span><br><span class="line">       <span class="keyword">try</span>:  </span><br><span class="line">          proc.terminate()  </span><br><span class="line">       <span class="keyword">except</span> psutil.NoSuchProcess:  </span><br><span class="line">          <span class="built_in">print</span>(<span class="string">f&quot;[*] <span class="subst">&#123;dll&#125;</span> for <span class="subst">&#123;filename&#125;</span> may be hijacked!&quot;</span>)  </span><br><span class="line">       <span class="keyword">finally</span>:  </span><br><span class="line">          os.rename(<span class="string">&#x27;./files/&#x27;</span>+dll, <span class="string">&#x27;./files/payload32.dll&#x27;</span>)</span><br></pre></td></tr></table></figure>
+<p>对Windows XP下的notepad.exe进行测试的结果如下：<br><img src="images/1-1.png"></p>
 <h2 id="4-API-Hook"><a href="#4-API-Hook" class="headerlink" title="4 API Hook"></a>4 API Hook</h2><p>网上对于Hook的分类有很多，上面在DLL注入中已经介绍了消息Hook，所以在这里就只介绍Ring3中的API Hook，即对系统DLL中的API函数进行挂钩。网上也有称之为Inject Hook的，但是我感觉还是API Hook最合适。<br>访问其他进程的最简单方式就是DLL，所以Hook通常也是通过DLL注入实现的。我们在DLL中设置好Hook函数，在DLL加载时就进行挂钩，DLL卸载时进行脱钩就可以实现完整的Hook过程。<br>此部分的代码很多都参考了selph师傅的博客。</p>
 <h3 id="4-1-Inline-Hook"><a href="#4-1-Inline-Hook" class="headerlink" title="4.1 Inline Hook"></a>4.1 Inline Hook</h3><p>修改API函数地址的开头的机器码为JMP跳转指令，如果还需要使用原有的API函数，则需要先Unhook，调用完后再重新Hook。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Windows.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">BYTE originOpcode[<span class="number">5</span>] = &#123; <span class="number">0</span> &#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">InstallHook</span><span class="params">(PROC hookAddr)</span>;</span><br><span class="line"><span class="type">void</span> <span class="title function_">UninstallHook</span><span class="params">(<span class="type">void</span>)</span>;</span><br><span class="line"><span class="type">int</span> WINAPI <span class="title function_">Hook</span><span class="params">(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)</span>;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">BOOL WINAPI <span class="title function_">DllMain</span><span class="params">(HMODULE hModule, DWORD  fdwReason, LPVOID lpReserved)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">switch</span> (fdwReason)</span><br><span class="line">	&#123;</span><br><span class="line">	<span class="keyword">case</span> DLL_PROCESS_ATTACH:</span><br><span class="line">		InstallHook((PROC)Hook);</span><br><span class="line">		MessageBoxA(<span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="string">&quot;InstallHook!&quot;</span>, MB_OK);</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">case</span> DLL_PROCESS_DETACH:</span><br><span class="line">		UninstallHook();</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> TRUE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">InstallHook</span><span class="params">(PROC hookAddr)</span></span><br><span class="line">&#123;</span><br><span class="line">	BYTE hookOpcode[<span class="number">5</span>] = &#123; <span class="number">0xE9</span>, <span class="number">0</span> &#125;;</span><br><span class="line">	<span class="comment">//HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, NULL, GetCurrentProcessId());</span></span><br><span class="line">	HANDLE hProcess = GetCurrentProcess();</span><br><span class="line">	<span class="comment">// 1. 获取API函数地址</span></span><br><span class="line">	PROC procAddr = GetProcAddress(GetModuleHandleA(<span class="string">&quot;user32.dll&quot;</span>), <span class="string">&quot;MessageBoxA&quot;</span>);</span><br><span class="line">	<span class="comment">// 2. 修改内存属性</span></span><br><span class="line">	DWORD originFlags = <span class="number">0</span>;</span><br><span class="line">	VirtualProtectEx(hProcess, procAddr, <span class="number">5</span>, PAGE_EXECUTE_READWRITE, &amp;originFlags);</span><br><span class="line">	<span class="comment">// 3. 读取原机器码，保存</span></span><br><span class="line">	ReadProcessMemory(hProcess, procAddr, originOpcode, <span class="number">5</span>, <span class="literal">NULL</span>);</span><br><span class="line">	<span class="comment">// 4. 构造跳转机器码，写入</span></span><br><span class="line">	DWORD jmpAddr = (DWORD)hookAddr - (DWORD)procAddr - <span class="number">5</span>;</span><br><span class="line">	<span class="built_in">memcpy</span>(&amp;hookOpcode[<span class="number">1</span>], &amp;jmpAddr, <span class="number">4</span>);</span><br><span class="line">	WriteProcessMemory(hProcess, procAddr, hookOpcode, <span class="number">5</span>, <span class="literal">NULL</span>);</span><br><span class="line">	<span class="comment">// 5. 恢复内存属性</span></span><br><span class="line">	VirtualProtectEx(hProcess, procAddr, <span class="number">5</span>, originFlags, <span class="literal">NULL</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">UninstallHook</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, <span class="literal">NULL</span>, GetCurrentProcessId());</span><br><span class="line">	<span class="comment">// 1. 获取API函数地址</span></span><br><span class="line">	PROC procAddr = GetProcAddress(GetModuleHandleA(<span class="string">&quot;user32.dll&quot;</span>), <span class="string">&quot;MessageBoxA&quot;</span>);</span><br><span class="line">	<span class="comment">// 2. 修改内存属性</span></span><br><span class="line">	DWORD origin_flags = <span class="number">0</span>;</span><br><span class="line">	VirtualProtectEx(hProcess, procAddr, <span class="number">5</span>, PAGE_EXECUTE_READWRITE, &amp;origin_flags);</span><br><span class="line">	<span class="comment">// 3. 将原来的机器码写入</span></span><br><span class="line">	WriteProcessMemory(hProcess, procAddr, originOpcode, <span class="number">5</span>, <span class="literal">NULL</span>);</span><br><span class="line">	<span class="comment">// 4. 恢复内存属性</span></span><br><span class="line">	VirtualProtectEx(hProcess, procAddr, <span class="number">5</span>, origin_flags, <span class="literal">NULL</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> WINAPI <span class="title function_">Hook</span><span class="params">(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)</span></span><br><span class="line">&#123;</span><br><span class="line">	UninstallHook();</span><br><span class="line">	MessageBoxA(<span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="string">&quot;Hooked!&quot;</span>, MB_OK);</span><br><span class="line">	InstallHook((PROC)Hook);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -228,4 +114,68 @@
 <li><a target="_blank" rel="noopener" href="https://github.com/ctxis/DLLHSC">https://github.com/ctxis/DLLHSC</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.kn0sky.com/?p=31">https://www.kn0sky.com/?p=31</a></li>
 </ul>
-</article><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"></div></div><nav class="pagination-post" id="pagination"><div class="next-post pull-full"><a href="/2023/10/24/The-First-Post/" title="The-First-Post"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">Next</div><div class="next_info">The-First-Post</div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>Contents</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-PE%E6%B3%A8%E5%85%A5"><span class="toc-number">1.</span> <span class="toc-text">1 PE注入</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E5%AF%BB%E6%89%BE%E7%A9%BA%E6%B4%9E"><span class="toc-number">1.1.</span> <span class="toc-text">1.1 寻找空洞</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E6%B3%A8%E5%85%A5shellcode"><span class="toc-number">1.2.</span> <span class="toc-text">1.2 注入shellcode</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-%E6%B3%A8%E5%85%A5%E5%AF%BC%E5%85%A5%E8%A1%A8"><span class="toc-number">1.3.</span> <span class="toc-text">1.3 注入导入表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-4-%E6%96%B0%E5%A2%9E%E8%8A%82"><span class="toc-number">1.4.</span> <span class="toc-text">1.4 新增节</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8F%90%E5%8D%87NT%E5%A4%B4"><span class="toc-number">1.4.1.</span> <span class="toc-text">提升NT头</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-5-%E5%90%88%E5%B9%B6%E8%8A%82"><span class="toc-number">1.5.</span> <span class="toc-text">1.5 合并节</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-6-%E6%89%A9%E5%B1%95%E8%8A%82"><span class="toc-number">1.6.</span> <span class="toc-text">1.6 扩展节</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-DLL%E6%B3%A8%E5%85%A5"><span class="toc-number">2.</span> <span class="toc-text">2 DLL注入</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E5%88%9B%E5%BB%BA%E8%BF%9C%E7%A8%8B%E7%BA%BF%E7%A8%8B"><span class="toc-number">2.1.</span> <span class="toc-text">2.1 创建远程线程</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#CreateRemoteThread"><span class="toc-number">2.1.1.</span> <span class="toc-text">CreateRemoteThread</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#NtCreateThreadEx"><span class="toc-number">2.1.2.</span> <span class="toc-text">NtCreateThreadEx</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#RtlCreateUserThread"><span class="toc-number">2.1.3.</span> <span class="toc-text">RtlCreateUserThread</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E7%BA%BF%E7%A8%8B%E5%8A%AB%E6%8C%81"><span class="toc-number">2.2.</span> <span class="toc-text">2.2 线程劫持</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#QueueUserAPC"><span class="toc-number">2.2.1.</span> <span class="toc-text">QueueUserAPC</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#SetThreadContext"><span class="toc-number">2.2.2.</span> <span class="toc-text">SetThreadContext</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E6%B6%88%E6%81%AFHook"><span class="toc-number">2.3.</span> <span class="toc-text">2.3 消息Hook</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#SetWindowsHookEx"><span class="toc-number">2.3.1.</span> <span class="toc-text">SetWindowsHookEx</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-%E5%8F%8D%E5%B0%84%E6%B3%A8%E5%85%A5"><span class="toc-number">2.4.</span> <span class="toc-text">2.4 反射注入</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-DLL%E5%8A%AB%E6%8C%81"><span class="toc-number">3.</span> <span class="toc-text">3 DLL劫持</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E8%8E%B7%E5%8F%96DLL%E5%88%97%E8%A1%A8"><span class="toc-number">3.1.</span> <span class="toc-text">3.1 获取DLL列表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E5%8A%AB%E6%8C%81%E6%B5%8B%E8%AF%95"><span class="toc-number">3.2.</span> <span class="toc-text">3.2 劫持测试</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-API-Hook"><span class="toc-number">4.</span> <span class="toc-text">4 API Hook</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-Inline-Hook"><span class="toc-number">4.1.</span> <span class="toc-text">4.1 Inline Hook</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#HotFix"><span class="toc-number">4.1.1.</span> <span class="toc-text">HotFix</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-IAT-Hook"><span class="toc-number">4.2.</span> <span class="toc-text">4.2 IAT Hook</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-Debug-Hook"><span class="toc-number">4.3.</span> <span class="toc-text">4.3 Debug Hook</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">5.</span> <span class="toc-text">5 写在最后</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6-%E5%8F%82%E8%80%83"><span class="toc-number">6.</span> <span class="toc-text">6 参考</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>Recent Post</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/03/02/%E6%B3%A8%E5%85%A5%E3%80%81%E5%8A%AB%E6%8C%81%E5%92%8CHook%E2%80%94%E2%80%94Windows%E5%AE%89%E5%85%A8%E5%85%A5%E9%97%A8%EF%BC%88%E4%B8%80%EF%BC%89/" title="Untitled">Untitled</a><time datetime="2024-03-02T02:53:49.989Z" title="Created 2024-03-02 10:53:49">2024-03-02</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/10/24/The-First-Post/" title="The-First-Post">The-First-Post</a><time datetime="2023-10-24T11:28:31.000Z" title="Created 2023-10-24 19:28:31">2023-10-24</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2022 - 2024 By etermrea</div><div class="framework-info"><span>Framework </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>Theme </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="Read Mode"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="Toggle Between Light And Dark Mode"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="Toggle between Single-column and Double-column"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="Setting"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="Table Of Contents"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="Back To Top"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><canvas class="fireworks" mobile="false"></canvas><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/fireworks.min.js"></script><script defer="defer" id="fluttering_ribbon" mobile="true" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-fluttering-ribbon.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
+
+        </article>
+        <section class="post-near">
+            <ul>
+                
+                    <li>上一篇: 看完啦 (つд⊂)</li>
+                
+                
+                    <li>下一篇: <a href="/2023/10/24/The-First-Post/">The-First-Post</a></li>
+                
+            </ul>
+        </section>
+        
+    
+        <section class="post-author">
+        
+            <figure class="author-avatar">
+                <img src="https://sdn.geekzu.org/avatar/d22eb460ecab37fcd7205e6a3c55c228?s=200&r=X&d=" alt="Hingle" />
+            </figure>
+        
+            <div class="author-info">
+                <h4>Hingle</h4>
+                <p>请在这里设置你的作者信息</p>
+            </div>
+        </section>
+    
+    </div>
+</main>
+
+    <footer>
+    <div class="buttons">
+        <a class="to-top" href="#"></a>
+    </div>
+    <div class="wrap min">
+        <section class="widget">
+            <div class="row">
+                <div class="col-m-4">
+                    <h3 class="title-recent">最新文章：</h3>
+                    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2024/03/02/%E6%B3%A8%E5%85%A5%E3%80%81%E5%8A%AB%E6%8C%81%E5%92%8CHook%E2%80%94%E2%80%94Windows%E5%AE%89%E5%85%A8%E5%85%A5%E9%97%A8%EF%BC%88%E4%B8%80%EF%BC%89/">注入、劫持和Hook——Windows安全入门（一）</a></li><li class="post-list-item"><a class="post-list-link" href="/2023/10/24/The-First-Post/">The-First-Post</a></li></ul>
+                </div>
+                <div class="col-m-4">
+                    <h3 class="title-date">时光机：</h3>
+                    <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/03/">March 2024</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2023/10/">October 2023</a></li></ul>
+                </div>
+                <div class="col-m-4">
+                    <h3 class="title-tags">标签云：</h3>
+                    <a href="/tags/%E6%9D%82/" style="font-size: 10px;">杂</a>
+                </div>
+            </div>
+        </section>
+        <section class="sub-footer">
+            <p>© 2024 <a href="/">REOP</a>. All Rights Reserved. Theme By <a href="https://github.com/Dreamer-Paul/Hingle" target="_blank" rel="nofollow">Hingle</a>.</p>
+        </section>
+    </div>
+</footer>
+
+
+<script src="/static/kico.js"></script>
+<script src="/static/hingle.js"></script>
+
+
+<script>var hingle = new Paul_Hingle({"copyright":true,"night":true});</script>
+
+  </body>
+</html>
