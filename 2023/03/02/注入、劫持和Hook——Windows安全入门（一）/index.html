@@ -3,7 +3,7 @@
   <head>
      
     <meta charset="UTF-8">
-    <title> - REOP</title>
+    <title>注入、劫持和Hook——Windows安全入门（一） - REOP</title>
     <link rel="shortcut icon" href="/static/img/icon.png">
     <link rel="icon" href="/static/img/icon.png" sizes="192x192"/>
     
@@ -15,7 +15,7 @@
 
     <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1"/>
     <meta property="og:site_name" content="REOP">
-    <meta property="og:title" content=""/>
+    <meta property="og:title" content="注入、劫持和Hook——Windows安全入门（一）"/>
     
 <meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="REOP" type="application/atom+xml">
 </head>
@@ -52,15 +52,17 @@
     <main>
     <div class="wrap min">
         <section class="post-title">
-            <h2>没有标题的文章</h2>
+            <h2>注入、劫持和Hook——Windows安全入门（一）</h2>
             <div class="post-meta">
-                <time class="date">2024.03.02</time>
+                <time class="date">2023.03.02</time>
             
             </div>
         </section>
         <article class="post-content">
         
-            <h1 id="注入、劫持和Hook——Windows安全入门（一）"><a href="#注入、劫持和Hook——Windows安全入门（一）" class="headerlink" title="注入、劫持和Hook——Windows安全入门（一）"></a>注入、劫持和Hook——Windows安全入门（一）</h1><h2 id="1-PE注入"><a href="#1-PE注入" class="headerlink" title="1 PE注入"></a>1 PE注入</h2><p>PE注入就是对静态的PE文件进行修改，使其在运行时能够加载我们需要的构造的代码。因为都是对文件进行静态的修改，只需要处理好RVA和Offset之间的转换，保证PE完整的结构就好，相对来说比较简单。<br>此部分代码都使用Python实现，使用pefile模块对PE文件进行操作，十分方便。当然因为PE的结构就是通过头文件定义的，使用C语言也很方便。</p>
+            <blockquote>这篇文章上次修改于 367 天前，可能其部分内容已经发生变化，如有疑问可询问作者。</blockquote>
+        
+            <h2 id="1-PE注入"><a href="#1-PE注入" class="headerlink" title="1 PE注入"></a>1 PE注入</h2><p>PE注入就是对静态的PE文件进行修改，使其在运行时能够加载我们需要的构造的代码。因为都是对文件进行静态的修改，只需要处理好RVA和Offset之间的转换，保证PE完整的结构就好，相对来说比较简单。<br>此部分代码都使用Python实现，使用pefile模块对PE文件进行操作，十分方便。当然因为PE的结构就是通过头文件定义的，使用C语言也很方便。</p>
 <h3 id="1-1-寻找空洞"><a href="#1-1-寻找空洞" class="headerlink" title="1.1 寻找空洞"></a>1.1 寻找空洞</h3><p>寻找代码中的空闲区域的大小，作为PE注入前的参考。<br>参考了<em><strong>cave miner</strong></em>项目，但是我没有研究其源码，只是按照其原理通过比较节表中的 SizeOfRawData 和 Misc_VirtualSize 属性，实现了最简单的功能。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pefile <span class="keyword">import</span> PE  </span><br><span class="line"><span class="keyword">import</span> sys  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">def</span> <span class="title function_">search_cave</span>(<span class="params">filename, minsize=<span class="number">0</span></span>):  </span><br><span class="line">    <span class="string">&quot;&quot;&quot;  </span></span><br><span class="line"><span class="string">    搜索代码空洞  </span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span>    pe = PE(filename)  </span><br><span class="line">    caves = []  </span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot;[*] FileAlign:\t<span class="subst">&#123;pe.OPTIONAL_HEADER.FileAlignment&#125;</span>Bytes&quot;</span>)  </span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot;[*] SectAlign:\t<span class="subst">&#123;pe.OPTIONAL_HEADER.SectionAlignment&#125;</span>Bytes\n&quot;</span>)  </span><br><span class="line">    <span class="comment"># 1. Cave Before Sections  </span></span><br><span class="line">    sectionDataBegin = pe.sections[<span class="number">0</span>].PointerToRawData  </span><br><span class="line">    sectionTableEnd = pe.sections[-<span class="number">1</span>].__file_offset__ + pe.sections[-<span class="number">1</span>].sizeof()  </span><br><span class="line">    caveSize = sectionDataBegin - sectionTableEnd - <span class="number">40</span>  </span><br><span class="line">    RVA = sectionTableEnd  </span><br><span class="line">    flags = <span class="number">0</span>  </span><br><span class="line">    <span class="keyword">if</span> caveSize &gt; minsize:  </span><br><span class="line">       caves.append(  </span><br><span class="line">          [<span class="string">&#x27;BEFORE &#x27;</span> + pe.sections[<span class="number">0</span>].Name.decode().rstrip(<span class="string">&#x27;\x00&#x27;</span>), sectionTableEnd + <span class="number">40</span>, sectionDataBegin, caveSize, RVA,  </span><br><span class="line">           flags])  </span><br><span class="line">    <span class="comment"># 2. Cave In Each Sections  </span></span><br><span class="line">    <span class="keyword">for</span> section <span class="keyword">in</span> pe.sections:  </span><br><span class="line">       caveSize = section.SizeOfRawData - section.Misc_VirtualSize  </span><br><span class="line">       <span class="keyword">if</span> caveSize &gt; minsize:  </span><br><span class="line">          begin = section.PointerToRawData + section.Misc_VirtualSize  </span><br><span class="line">          RVA = section.VirtualAddress + section.Misc_VirtualSize  </span><br><span class="line">          flags = (section.Characteristics &amp; <span class="number">0xf0000000</span>) &gt;&gt; <span class="number">29</span>  </span><br><span class="line">          <span class="comment"># print(flags)  </span></span><br><span class="line">          caves.append([<span class="string">&#x27;IN &#x27;</span> + section.Name.decode().rstrip(<span class="string">&#x27;\x00&#x27;</span>), begin, begin + caveSize, caveSize, RVA, flags])  </span><br><span class="line">    <span class="keyword">for</span> cave <span class="keyword">in</span> caves:  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;[+] &quot;</span> + cave[<span class="number">0</span>], end=<span class="string">&quot;:\n&quot;</span>)  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tBegin:\t&quot;</span> + <span class="built_in">hex</span>(cave[<span class="number">1</span>])[<span class="number">2</span>:], end=<span class="string">&quot;h\n&quot;</span>)  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tEnd:\t&quot;</span> + <span class="built_in">hex</span>(cave[<span class="number">2</span>])[<span class="number">2</span>:], end=<span class="string">&quot;h\n&quot;</span>)  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tSize:\t&quot;</span> + <span class="built_in">hex</span>(cave[<span class="number">3</span>])[<span class="number">2</span>:] + <span class="string">&#x27;h (&#x27;</span> + <span class="built_in">str</span>(cave[<span class="number">3</span>]) + <span class="string">&#x27;Bytes)&#x27;</span>, end=<span class="string">&quot;\n&quot;</span>)  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tRVA:\t&quot;</span> + <span class="built_in">hex</span>(cave[<span class="number">4</span>])[<span class="number">2</span>:], end=<span class="string">&quot;h\n&quot;</span>)  </span><br><span class="line">       flags = <span class="built_in">list</span>(<span class="string">&#x27;---&#x27;</span>)  </span><br><span class="line">       <span class="keyword">if</span> cave[<span class="number">5</span>] &amp; <span class="number">4</span>:  </span><br><span class="line">          flags[<span class="number">0</span>] = <span class="string">&#x27;w&#x27;</span>  </span><br><span class="line">       <span class="keyword">if</span> cave[<span class="number">5</span>] &amp; <span class="number">2</span>:  </span><br><span class="line">          flags[<span class="number">1</span>] = <span class="string">&#x27;r&#x27;</span>  </span><br><span class="line">       <span class="keyword">if</span> cave[<span class="number">5</span>] &amp; <span class="number">1</span>:  </span><br><span class="line">          flags[<span class="number">2</span>] = <span class="string">&#x27;x&#x27;</span>  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;\t\tFlags:\t&quot;</span> + <span class="string">&#x27;&#x27;</span>.join(flags), end=<span class="string">&quot;\n&quot;</span>)  </span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&quot;__main__&quot;</span>:  </span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(sys.argv) &lt; <span class="number">2</span>:  </span><br><span class="line">       <span class="built_in">print</span>(<span class="string">&quot;[Usage] python search.py &lt;filename&gt; [minsize]&quot;</span>)  </span><br><span class="line">       exit(<span class="number">0</span>)  </span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(sys.argv) == <span class="number">2</span>:  </span><br><span class="line">       search_cave(sys.argv[<span class="number">1</span>])  </span><br><span class="line">    <span class="keyword">else</span>:  </span><br><span class="line">       search_cave(sys.argv[<span class="number">1</span>], <span class="built_in">int</span>(sys.argv[<span class="number">2</span>]))</span><br></pre></td></tr></table></figure>
 <h3 id="1-2-注入shellcode"><a href="#1-2-注入shellcode" class="headerlink" title="1.2 注入shellcode"></a>1.2 注入shellcode</h3><p>向空洞中注入shellcode，然后修改OEP指向shellcode的入口。需要注意的是要确保注入点的节具有执行权限。</p>
@@ -119,13 +121,17 @@
         <section class="post-near">
             <ul>
                 
-                    <li>上一篇: 看完啦 (つд⊂)</li>
+                    <li>上一篇: <a href="/2023/10/24/The-First-Post/">The-First-Post</a></li>
                 
                 
-                    <li>下一篇: <a href="/2023/10/24/The-First-Post/">The-First-Post</a></li>
+                    <li>下一篇: 看完啦 (つд⊂)</li>
                 
             </ul>
         </section>
+        
+            <section class="post-tags">
+            <a class="-none-link" href="/tags/Windows/" rel="tag">Windows</a>
+            </section>
         
     
         <section class="post-author">
@@ -152,15 +158,15 @@
             <div class="row">
                 <div class="col-m-4">
                     <h3 class="title-recent">最新文章：</h3>
-                    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2024/03/02/%E6%B3%A8%E5%85%A5%E3%80%81%E5%8A%AB%E6%8C%81%E5%92%8CHook%E2%80%94%E2%80%94Windows%E5%AE%89%E5%85%A8%E5%85%A5%E9%97%A8%EF%BC%88%E4%B8%80%EF%BC%89/">注入、劫持和Hook——Windows安全入门（一）</a></li><li class="post-list-item"><a class="post-list-link" href="/2023/10/24/The-First-Post/">The-First-Post</a></li></ul>
+                    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2023/10/24/The-First-Post/">The-First-Post</a></li><li class="post-list-item"><a class="post-list-link" href="/2023/03/02/%E6%B3%A8%E5%85%A5%E3%80%81%E5%8A%AB%E6%8C%81%E5%92%8CHook%E2%80%94%E2%80%94Windows%E5%AE%89%E5%85%A8%E5%85%A5%E9%97%A8%EF%BC%88%E4%B8%80%EF%BC%89/">注入、劫持和Hook——Windows安全入门（一）</a></li></ul>
                 </div>
                 <div class="col-m-4">
                     <h3 class="title-date">时光机：</h3>
-                    <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/03/">March 2024</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2023/10/">October 2023</a></li></ul>
+                    <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2023/10/">October 2023</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2023/03/">March 2023</a></li></ul>
                 </div>
                 <div class="col-m-4">
                     <h3 class="title-tags">标签云：</h3>
-                    <a href="/tags/%E6%9D%82/" style="font-size: 10px;">杂</a>
+                    <a href="/tags/Windows/" style="font-size: 10px;">Windows</a> <a href="/tags/%E6%9D%82/" style="font-size: 10px;">杂</a>
                 </div>
             </div>
         </section>
