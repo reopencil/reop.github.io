@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html>
+  <head>
+     
+    <meta charset="UTF-8">
+    <title>驱动和系统调用——Windows安全入门（三） - REOP</title>
+    <link rel="shortcut icon" href="/static/img/icon.png">
+    <link rel="icon" href="/static/img/icon.png" sizes="192x192"/>
+    
+<link rel="stylesheet" href="/static/kico.css">
+<link rel="stylesheet" href="/static/hingle.css">
+
+    
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1"/>
+    <meta property="og:site_name" content="REOP">
+    <meta property="og:title" content="驱动和系统调用——Windows安全入门（三）"/>
+    
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="REOP" type="application/atom+xml">
+</head>
+
+  <body>
+    <header>
+    <div class="head-title">
+        <h4>REOP</h4>
+    </div>
+    <div class="head-action">
+        <div class="toggle-btn"></div>
+        <div class="light-btn"></div>
+        <div class="search-btn"></div>
+    </div>
+    <form class="head-search" method="post">
+        <input type="text" name="s" placeholder="搜索什么？">
+    </form>
+    <nav class="head-menu">
+        <a href="/">首页</a>
+        <div class="has-child">
+            <a>分类</a>
+            <div class="sub-menu">
+                <a class="category-link" href="/categories/Windows/">Windows</a>
+            </div>
+        </div>
+        
+    </nav>
+</header>
+
+    <main>
+    <div class="wrap min">
+        <section class="post-title">
+            <h2>驱动和系统调用——Windows安全入门（三）</h2>
+            <div class="post-meta">
+                <time class="date">2024.03.20</time>
+            
+                <span class="category"><a class="category-link" href="/categories/Windows/">Windows</a></span>
+            
+            </div>
+        </section>
+        <article class="post-content">
+        
+            <h2 id="1-驱动"><a href="#1-驱动" class="headerlink" title="1 驱动"></a>1 驱动</h2><h3 id="1-1-内核编程基础"><a href="#1-1-内核编程基础" class="headerlink" title="1.1 内核编程基础"></a>1.1 内核编程基础</h3><h4 id="简单的驱动程序"><a href="#简单的驱动程序" class="headerlink" title="简单的驱动程序"></a>简单的驱动程序</h4><p>读取GDT并打印：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntddk.h></span>    </span>
+
+NTSTATUS <span class="token function">UnloadDriver</span><span class="token punctuation">(</span>PDRIVER_OBJECT DriverObject<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+NTSTATUS <span class="token function">DriverEntry</span><span class="token punctuation">(</span>PDRIVER_OBJECT DriverObject<span class="token punctuation">,</span> PUNICODE_STRING RegistryPath<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Hello Driver!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    DriverObject<span class="token operator">-></span>DriverUnload <span class="token operator">=</span> UnloadDriver<span class="token punctuation">;</span>
+
+    <span class="token keyword">char</span> gdt<span class="token punctuation">[</span><span class="token number">6</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    _asm <span class="token punctuation">&#123;</span>
+        sgdt gdt<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    USHORT limit <span class="token operator">=</span> <span class="token operator">*</span><span class="token punctuation">(</span>USHORT<span class="token operator">*</span><span class="token punctuation">)</span>gdt<span class="token punctuation">;</span>
+    UINT32 base <span class="token operator">=</span> <span class="token operator">*</span><span class="token punctuation">(</span>UINT32<span class="token operator">*</span><span class="token punctuation">)</span><span class="token operator">&amp;</span>gdt<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    UINT32<span class="token operator">*</span> mem <span class="token operator">=</span> <span class="token punctuation">(</span>UINT32<span class="token operator">*</span><span class="token punctuation">)</span><span class="token function">ExAllocatePoolWithTag</span><span class="token punctuation">(</span>NonPagedPool<span class="token punctuation">,</span> limit<span class="token punctuation">,</span> <span class="token constant">NULL</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>mem<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Allocate Failed!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">RtlMoveMemory</span><span class="token punctuation">(</span>mem<span class="token punctuation">,</span> base<span class="token punctuation">,</span> limit<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">int</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> limit <span class="token operator">/</span> <span class="token number">4</span><span class="token punctuation">;</span> i<span class="token operator">+=</span><span class="token number">2</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"GDT[%d]:\t %0.8x`%0.8x\n"</span><span class="token punctuation">,</span> i <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">,</span> mem<span class="token punctuation">[</span>i <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> mem<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">ExFreePool</span><span class="token punctuation">(</span>mem<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="DRIVER-OBJECT"><a href="#DRIVER-OBJECT" class="headerlink" title="DRIVER_OBJECT"></a>DRIVER_OBJECT</h4><p>DRIVER_OBJECT结构体中存储当前驱动的所有信息：<br><img src="/images/3-3.png" alt="3-3"></p>
+<ul>
+<li>DriverStart：驱动对象加载后的起始地址；</li>
+<li>DriverSize：驱动对象加载后的大小；</li>
+<li>DriverSection：当前驱动在LDR_DATA_TABLE_ENTRY链表中的起始地址；</li>
+</ul>
+<h4 id="LDR-DATA-TABLE-ENTRY"><a href="#LDR-DATA-TABLE-ENTRY" class="headerlink" title="LDR_DATA_TABLE_ENTRY"></a>LDR_DATA_TABLE_ENTRY</h4><p>此结构体构成的双向链表存储所有加载的内核驱动信息：<br><img src="/images/3-4.png" alt="3-4"></p>
+<h4 id="IRQL"><a href="#IRQL" class="headerlink" title="IRQL"></a>IRQL</h4><p>由Windows系统提供的一套中断执行优先级，数字越大优先级越高：</p>
+<table>
+<thead>
+<tr>
+<th>IRQL</th>
+<th>宏</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0</td>
+<td>PASSIVE_LEVEL</td>
+<td>最低级别，不屏蔽任何中断，用于用户模式的线程；</td>
+</tr>
+<tr>
+<td>1</td>
+<td>APC_LEVEL</td>
+<td>屏蔽其他APC级别的中断，用于异步过程调用；</td>
+</tr>
+<tr>
+<td>2</td>
+<td>DISPATCH_LEVEL</td>
+<td>&lt;&#x3D;2的中断被屏蔽，不能访问分页内存，主要用于<br>进程切换；</td>
+</tr>
+<tr>
+<td>3-26</td>
+<td>Device IRQL</td>
+<td>屏蔽几乎所有中断，用于外部设备；</td>
+</tr>
+<tr>
+<td>27</td>
+<td>PROFILE_LEVEL</td>
+<td>性能剖析；</td>
+</tr>
+<tr>
+<td>28</td>
+<td>CLOCK_LEVEL</td>
+<td>时钟中断；</td>
+</tr>
+<tr>
+<td>29</td>
+<td>IPL_LEVEL</td>
+<td>处理器间中断；</td>
+</tr>
+<tr>
+<td>30</td>
+<td>POWER_LEVEL</td>
+<td>电源中断；</td>
+</tr>
+<tr>
+<td>31</td>
+<td>HIGH_LEVEL</td>
+<td>最高中断层；</td>
+</tr>
+</tbody></table>
+<h3 id="1-2-实验1：隐藏内核模块"><a href="#1-2-实验1：隐藏内核模块" class="headerlink" title="1.2 实验1：隐藏内核模块"></a>1.2 实验1：隐藏内核模块</h3><p>遍历内核模块：<br><img src="/images/3-5.png" alt="3-5"></p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntddk.h></span>    </span>
+
+NTSTATUS <span class="token function">UnloadDriver</span><span class="token punctuation">(</span>PDRIVER_OBJECT DriverObject<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+NTSTATUS <span class="token function">DriverEntry</span><span class="token punctuation">(</span>PDRIVER_OBJECT DriverObject<span class="token punctuation">,</span> PUNICODE_STRING RegistryPath<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Hello Driver!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    DriverObject<span class="token operator">-></span>DriverUnload <span class="token operator">=</span> UnloadDriver<span class="token punctuation">;</span>
+
+    LIST_ENTRY<span class="token operator">*</span> pEntry <span class="token operator">=</span> DriverObject<span class="token operator">-></span>DriverSection<span class="token punctuation">;</span>
+    LIST_ENTRY<span class="token operator">*</span> pCurrentEntry <span class="token operator">=</span> pEntry<span class="token punctuation">;</span>
+    <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        PUNICODE_STRING name <span class="token operator">=</span> <span class="token punctuation">(</span>PUNICODE_STRING<span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">(</span>UINT32<span class="token punctuation">)</span>pEntry<span class="token operator">+</span><span class="token number">0x2c</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"DriverName : %wZ\n"</span><span class="token punctuation">,</span> name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        pEntry <span class="token operator">=</span> pEntry<span class="token operator">-></span>Flink<span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>pEntry <span class="token operator">==</span> pCurrentEntry<span class="token punctuation">)</span>
+            <span class="token keyword">break</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>修改双向链表，去掉当前节点：<br>使用XueTr工具仍然可以检测到隐藏后的驱动：<br><img src="/images/3-6.png" alt="3-6"></p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntddk.h></span>    </span>
+
+LIST_ENTRY<span class="token operator">*</span> pCurrentEntry<span class="token punctuation">;</span>
+LIST_ENTRY<span class="token operator">*</span> pBeforeEntry<span class="token punctuation">;</span>
+LIST_ENTRY<span class="token operator">*</span> pFrontEntry<span class="token punctuation">;</span>
+
+NTSTATUS <span class="token function">UnloadDriver</span><span class="token punctuation">(</span>PDRIVER_OBJECT DriverObject<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    pBeforeEntry<span class="token operator">-></span>Flink <span class="token operator">=</span> pCurrentEntry<span class="token punctuation">;</span>
+    pFrontEntry<span class="token operator">-></span>Blink <span class="token operator">=</span> pCurrentEntry<span class="token punctuation">;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+NTSTATUS <span class="token function">DriverEntry</span><span class="token punctuation">(</span>PDRIVER_OBJECT DriverObject<span class="token punctuation">,</span> PUNICODE_STRING RegistryPath<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Hello Driver!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    DriverObject<span class="token operator">-></span>DriverUnload <span class="token operator">=</span> UnloadDriver<span class="token punctuation">;</span>
+
+    pCurrentEntry <span class="token operator">=</span> DriverObject<span class="token operator">-></span>DriverSection<span class="token punctuation">;</span>
+    pBeforeEntry <span class="token operator">=</span> pCurrentEntry<span class="token operator">-></span>Blink<span class="token punctuation">;</span>
+    pFrontEntry <span class="token operator">=</span> pCurrentEntry<span class="token operator">-></span>Flink<span class="token punctuation">;</span>
+
+    pBeforeEntry<span class="token operator">-></span>Flink <span class="token operator">=</span> pFrontEntry<span class="token punctuation">;</span>
+    pFrontEntry<span class="token operator">-></span>Blink <span class="token operator">=</span> pBeforeEntry<span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="1-3-实验2：设备通信"><a href="#1-3-实验2：设备通信" class="headerlink" title="1.3 实验2：设备通信"></a>1.3 实验2：设备通信</h3><p>在编写驱动时，创建设备和对应的符号链接，然后在Ring3通过符号链接即可链接对应的设备。<br>驱动代码：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntddk.h></span>    </span>
+
+
+<span class="token comment">// 定义设备名和驱动符号</span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">DEVICE_NAME</span> <span class="token expression">L</span><span class="token string">"\\Device\\Demo1"</span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">SYMBOLICLINK_NAME</span> <span class="token expression">L</span><span class="token string">"\\??\\Demo1"</span></span>
+<span class="token comment">// 定义 I/O 控制代码，只有 0x800-0xFFF 可用</span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">OPER1</span> <span class="token expression"><span class="token function">CTL_CODE</span><span class="token punctuation">(</span>FILE_DEVICE_UNKNOWN<span class="token punctuation">,</span> <span class="token number">0x800</span><span class="token punctuation">,</span> METHOD_BUFFERED<span class="token punctuation">,</span> FILE_ANY_ACCESS<span class="token punctuation">)</span></span></span>
+
+<span class="token comment">// 卸载驱动</span>
+NTSTATUS <span class="token function">UnloadDriver</span><span class="token punctuation">(</span>PDRIVER_OBJECT pDriObj<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    UNICODE_STRING SymbolicLinkName <span class="token operator">=</span> <span class="token punctuation">&#123;</span> <span class="token number">0</span> <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Unload Driver!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 删除符号和设备</span>
+    <span class="token function">RtlInitUnicodeString</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>SymbolicLinkName<span class="token punctuation">,</span> SYMBOLICLINK_NAME<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">IoDeleteSymbolicLink</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>SymbolicLinkName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">IoDeleteDevice</span><span class="token punctuation">(</span>pDriObj<span class="token operator">-></span>DeviceObject<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// Ring3 创建设备对象时的处理函数</span>
+NTSTATUS <span class="token function">IrpCreateProc</span><span class="token punctuation">(</span>PDEVICE_OBJECT pDevObj<span class="token punctuation">,</span> PIRP pIrp<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Open Device!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// 设置返回状态</span>
+    pIrp<span class="token operator">-></span>IoStatus<span class="token punctuation">.</span>Status <span class="token operator">=</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+    pIrp<span class="token operator">-></span>IoStatus<span class="token punctuation">.</span>Information <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+    <span class="token function">IoCompleteRequest</span><span class="token punctuation">(</span>pIrp<span class="token punctuation">,</span> IO_NO_INCREMENT<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 关闭设备对象时的处理函数</span>
+NTSTATUS <span class="token function">IrpCloseProc</span><span class="token punctuation">(</span>PDEVICE_OBJECT pDevObj<span class="token punctuation">,</span> PIRP pIrp<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Close Device!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    pIrp<span class="token operator">-></span>IoStatus<span class="token punctuation">.</span>Status <span class="token operator">=</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+    pIrp<span class="token operator">-></span>IoStatus<span class="token punctuation">.</span>Information <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+    <span class="token function">IoCompleteRequest</span><span class="token punctuation">(</span>pIrp<span class="token punctuation">,</span> IO_NO_INCREMENT<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 处理设备通信</span>
+NTSTATUS <span class="token function">IrpDeviceControlProc</span><span class="token punctuation">(</span>PDEVICE_OBJECT pDevObj<span class="token punctuation">,</span> PIRP pIrp<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    NTSTATUS status <span class="token operator">=</span> STATUS_INVALID_DEVICE_REQUEST<span class="token punctuation">;</span>
+    PIO_STACK_LOCATION pIrpStack<span class="token punctuation">;</span>
+    ULONG uIoControlCode<span class="token punctuation">;</span>
+    PVOID pIoBuffer<span class="token punctuation">;</span>
+    ULONG uInLength<span class="token punctuation">;</span>
+    ULONG uOutLength<span class="token punctuation">;</span>
+    ULONG uRead<span class="token punctuation">;</span>
+    ULONG uWrite<span class="token operator">=</span><span class="token number">0xaabbccdd</span><span class="token punctuation">;</span>
+    <span class="token comment">// 获取堆栈地址</span>
+    pIrpStack <span class="token operator">=</span> <span class="token function">IoGetCurrentIrpStackLocation</span><span class="token punctuation">(</span>pIrp<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment">// 获取I/O控制码</span>
+    uIoControlCode <span class="token operator">=</span> pIrpStack<span class="token operator">-></span>Parameters<span class="token punctuation">.</span>DeviceIoControl<span class="token punctuation">.</span>IoControlCode<span class="token punctuation">;</span>
+    <span class="token comment">// 获取缓冲区地址</span>
+    pIoBuffer <span class="token operator">=</span> pIrp<span class="token operator">-></span>AssociatedIrp<span class="token punctuation">.</span>SystemBuffer<span class="token punctuation">;</span>
+    <span class="token comment">// 接收的数据长度</span>
+    uInLength <span class="token operator">=</span> pIrpStack<span class="token operator">-></span>Parameters<span class="token punctuation">.</span>DeviceIoControl<span class="token punctuation">.</span>InputBufferLength<span class="token punctuation">;</span>
+    <span class="token comment">// 要发送的数据长度</span>
+    uOutLength <span class="token operator">=</span> pIrpStack<span class="token operator">-></span>Parameters<span class="token punctuation">.</span>DeviceIoControl<span class="token punctuation">.</span>OutputBufferLength<span class="token punctuation">;</span>
+    <span class="token comment">//DbgPrint("The IOCTL is %x\n", uIoControlCode);</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>uIoControlCode <span class="token operator">==</span> OPER1<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"The IOCTL is %x\n"</span><span class="token punctuation">,</span> uIoControlCode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"IrpDeviceControlProc -> OPER1 接收字节数：%d \n"</span><span class="token punctuation">,</span> uInLength<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"IrpDeviceControlProc -> OPER1 输出字节数：%d \n"</span><span class="token punctuation">,</span> uOutLength<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">// Read From Buffer</span>
+        <span class="token function">RtlMoveMemory</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>uRead<span class="token punctuation">,</span> pIoBuffer<span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"IrpDeviceControlProc -> OPER1 ... %x \n"</span><span class="token punctuation">,</span> uRead<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">// Write To Buffer</span>
+        <span class="token function">RtlMoveMemory</span><span class="token punctuation">(</span>pIoBuffer<span class="token punctuation">,</span> <span class="token operator">&amp;</span>uWrite<span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">// Set Status</span>
+        pIrp<span class="token operator">-></span>IoStatus<span class="token punctuation">.</span>Information <span class="token operator">=</span> <span class="token number">4</span><span class="token punctuation">;</span>
+        status <span class="token operator">=</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    pIrp<span class="token operator">-></span>IoStatus<span class="token punctuation">.</span>Status <span class="token operator">=</span> status<span class="token punctuation">;</span>
+    <span class="token function">IoCompleteRequest</span><span class="token punctuation">(</span>pIrp<span class="token punctuation">,</span> IO_NO_INCREMENT<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> status<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+NTSTATUS <span class="token function">DriverEntry</span><span class="token punctuation">(</span>PDRIVER_OBJECT pDriver<span class="token punctuation">,</span> PUNICODE_STRING RegistryPath<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    NTSTATUS status <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+    ULONG    uIndex <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+    PDEVICE_OBJECT pDeviceObj <span class="token operator">=</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+    UNICODE_STRING Devicename<span class="token punctuation">;</span>
+    UNICODE_STRING SymbolicLinkName<span class="token punctuation">;</span>
+
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Load Driver!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    pDriver<span class="token operator">-></span>DriverUnload <span class="token operator">=</span> UnloadDriver<span class="token punctuation">;</span>
+
+    <span class="token comment">// 创建设备</span>
+    <span class="token function">RtlInitUnicodeString</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>Devicename<span class="token punctuation">,</span> DEVICE_NAME<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    status <span class="token operator">=</span> <span class="token function">IoCreateDevice</span><span class="token punctuation">(</span>pDriver<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token operator">&amp;</span>Devicename<span class="token punctuation">,</span> FILE_DEVICE_UNKNOWN<span class="token punctuation">,</span> FILE_DEVICE_SECURE_OPEN<span class="token punctuation">,</span> FALSE<span class="token punctuation">,</span> <span class="token operator">&amp;</span>pDeviceObj<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>status <span class="token operator">!=</span> STATUS_SUCCESS<span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Create Device Failed! \n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> status<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Create Device Success! \n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment">// 设置数据交互方式</span>
+    pDeviceObj<span class="token operator">-></span>Flags <span class="token operator">|=</span> DO_BUFFERED_IO<span class="token punctuation">;</span>
+    <span class="token comment">// 创建符号链接</span>
+    <span class="token function">RtlInitUnicodeString</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>SymbolicLinkName<span class="token punctuation">,</span> SYMBOLICLINK_NAME<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    status <span class="token operator">=</span> <span class="token function">IoCreateSymbolicLink</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>SymbolicLinkName<span class="token punctuation">,</span> <span class="token operator">&amp;</span>Devicename<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>status <span class="token operator">!=</span> STATUS_SUCCESS<span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Create Symbols Failed! \n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">IoDeleteDevice</span><span class="token punctuation">(</span>pDeviceObj<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> status<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Create Symbols Success! \n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment">// 设置处理函数</span>
+    pDriver<span class="token operator">-></span>MajorFunction<span class="token punctuation">[</span>IRP_MJ_CREATE<span class="token punctuation">]</span> <span class="token operator">=</span> IrpCreateProc<span class="token punctuation">;</span>
+    pDriver<span class="token operator">-></span>MajorFunction<span class="token punctuation">[</span>IRP_MJ_CLOSE<span class="token punctuation">]</span> <span class="token operator">=</span> IrpCloseProc<span class="token punctuation">;</span>
+    pDriver<span class="token operator">-></span>MajorFunction<span class="token punctuation">[</span>IRP_MJ_DEVICE_CONTROL<span class="token punctuation">]</span> <span class="token operator">=</span> IrpDeviceControlProc<span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>Ring3代码（如果不使用宽字符的话，要将VS属性设置为多字符集）：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">_CRT_SECURE_NO_WARNINGS</span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdio.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdlib.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;Windows.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;winioctl.h></span></span>
+
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">IN_BUFFER_MAXLENGTH</span>  <span class="token expression"><span class="token number">0x10</span>	</span><span class="token comment">//输入缓存最大长度</span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">OUT_BUFFER_MAXLENGTH</span> <span class="token expression"><span class="token number">0x10</span>	</span><span class="token comment">//输出缓存最大长度</span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">OPER1</span> <span class="token expression"><span class="token function">CTL_CODE</span><span class="token punctuation">(</span>FILE_DEVICE_UNKNOWN<span class="token punctuation">,</span> <span class="token number">0x800</span><span class="token punctuation">,</span> METHOD_BUFFERED<span class="token punctuation">,</span> FILE_ANY_ACCESS<span class="token punctuation">)</span></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">SYMBOLICLINK_NAME</span> <span class="token string">"\\\\.\\Demo1"</span></span>
+
+HANDLE g_hDevice<span class="token punctuation">;</span> <span class="token comment">// 驱动句柄</span>
+
+<span class="token comment">// 创建设备对象</span>
+BOOL <span class="token function">Open</span><span class="token punctuation">(</span>PCHAR pLinkName<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ TCHAR szBuffer<span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span> <span class="token number">0</span> <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+ <span class="token comment">//在3环获取驱动程序</span>
+ g_hDevice <span class="token operator">=</span> <span class="token function">CreateFile</span><span class="token punctuation">(</span>pLinkName<span class="token punctuation">,</span> GENERIC_READ <span class="token operator">|</span> GENERIC_WRITE<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">,</span> OPEN_EXISTING<span class="token punctuation">,</span> FILE_ATTRIBUTE_NORMAL<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ DWORD err <span class="token operator">=</span> <span class="token function">GetLastError</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">sprintf</span><span class="token punctuation">(</span>szBuffer<span class="token punctuation">,</span> <span class="token string">"%d\n"</span><span class="token punctuation">,</span> err<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">if</span> <span class="token punctuation">(</span>g_hDevice <span class="token operator">!=</span> INVALID_HANDLE_VALUE<span class="token punctuation">)</span>
+  <span class="token keyword">return</span> TRUE<span class="token punctuation">;</span>
+ <span class="token keyword">else</span>
+  <span class="token keyword">return</span> FALSE<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 设备通信函数</span>
+BOOL <span class="token function">IoControl</span><span class="token punctuation">(</span>DWORD dwIoCode<span class="token punctuation">,</span> PVOID InBuff<span class="token punctuation">,</span> DWORD InBuffLen<span class="token punctuation">,</span> PVOID OutBuff<span class="token punctuation">,</span> DWORD OutBuffLen<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ DWORD dw<span class="token punctuation">;</span>
+ <span class="token comment">//驱动句柄/操作码/输入缓冲区地址/输入缓冲区长度/输出缓冲区地址/输出缓冲区长度/返回长度/指向OVERLAPPED 此处为NULL</span>
+ <span class="token function">DeviceIoControl</span><span class="token punctuation">(</span>g_hDevice<span class="token punctuation">,</span> dwIoCode<span class="token punctuation">,</span> InBuff<span class="token punctuation">,</span> InBuffLen<span class="token punctuation">,</span> OutBuff<span class="token punctuation">,</span> OutBuffLen<span class="token punctuation">,</span> <span class="token operator">&amp;</span>dw<span class="token punctuation">,</span> <span class="token constant">NULL</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">return</span> TRUE<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ DWORD dwInBuffer <span class="token operator">=</span> <span class="token number">0x11223344</span><span class="token punctuation">;</span>
+ DWORD szOutBuffer <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+ <span class="token function">Open</span><span class="token punctuation">(</span>SYMBOLICLINK_NAME<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">IoControl</span><span class="token punctuation">(</span>OPER1<span class="token punctuation">,</span> <span class="token operator">&amp;</span>dwInBuffer<span class="token punctuation">,</span> IN_BUFFER_MAXLENGTH<span class="token punctuation">,</span> <span class="token operator">&amp;</span>szOutBuffer<span class="token punctuation">,</span> OUT_BUFFER_MAXLENGTH<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"%p\n"</span><span class="token punctuation">,</span> szOutBuffer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token comment">//3. 关闭设备</span>
+ <span class="token function">CloseHandle</span><span class="token punctuation">(</span>g_hDevice<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">system</span><span class="token punctuation">(</span><span class="token string">"pause"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p><img src="/images/3-7.png" alt="3-7"></p>
+<h3 id="1-4-实验3：中断门实现Inline-Hook"><a href="#1-4-实验3：中断门实现Inline-Hook" class="headerlink" title="1.4 实验3：中断门实现Inline Hook"></a>1.4 实验3：中断门实现Inline Hook</h3><p>通过构造中断门提权后修改特定的API函数入口跳转到我们构造的Hook函数，执行完操作后恢复现场返回到API入口的下一行继续执行。<br>本实验以ntkrnlpa.exe中的KiFastEntry函数为例，使用Xuetr查看模块地址后在IDA中修改基址然后就可以进行分析了。<br><img src="/images/3-1.png" alt="3-1"><br><img src="/images/3-2.png" alt="3-2"><br>首先在内存中写入构造的Hook函数，这里使用GDT中的空闲表项地址，实现了一个API调用计数器的简单功能：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdio.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdlib.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;Windows.h></span></span>
+
+
+<span class="token keyword">char</span><span class="token operator">*</span> g_hookAddr<span class="token punctuation">;</span>
+<span class="token keyword">void</span> <span class="token function">Hook</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// 向Hook函数地址写入字节码</span>
+<span class="token keyword">void</span> <span class="token function">_declspec</span><span class="token punctuation">(</span>naked<span class="token punctuation">)</span> <span class="token function">IdtEntry</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ g_hookAddr <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token keyword">char</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token number">0x8003f120</span><span class="token punctuation">;</span>
+ <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">int</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">64</span><span class="token punctuation">;</span> <span class="token operator">++</span>i<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token operator">*</span>g_hookAddr <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token keyword">char</span><span class="token operator">*</span><span class="token punctuation">)</span>Hook<span class="token punctuation">)</span><span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  g_hookAddr<span class="token operator">++</span><span class="token punctuation">;</span>
+ <span class="token punctuation">&#125;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  iretd
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">void</span> <span class="token function">_declspec</span><span class="token punctuation">(</span>naked<span class="token punctuation">)</span> <span class="token function">Hook</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  pushad
+  pushfd
+
+  mov eax<span class="token punctuation">,</span> ds<span class="token operator">:</span><span class="token punctuation">[</span><span class="token number">0x8003f180</span><span class="token punctuation">]</span>
+  inc eax
+  mov ds <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">0x8003f180</span><span class="token punctuation">]</span><span class="token punctuation">,</span> eax
+
+  popfd
+  popad
+
+  mov ecx<span class="token punctuation">,</span> <span class="token number">0x23</span>
+  push <span class="token number">0x30</span>
+  pop fs
+  mov ds<span class="token punctuation">,</span> cx
+  mov es<span class="token punctuation">,</span> cx
+  mov	ecx<span class="token punctuation">,</span> <span class="token number">0x8053E54D</span>
+
+  jmp ecx
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">void</span> <span class="token function">go</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  <span class="token keyword">int</span> <span class="token number">0x20</span>
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>DWORD<span class="token punctuation">)</span>IdtEntry <span class="token operator">!=</span> <span class="token number">0x401040</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"Wrong Address!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">exit</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token punctuation">&#125;</span>
+ <span class="token function">go</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">system</span><span class="token punctuation">(</span><span class="token string">"pause"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>然后是修改API函数入口，将其指向跳转到Hook函数的地址：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdio.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdlib.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;Windows.h></span></span>
+
+<span class="token comment">// 设置Hook</span>
+<span class="token keyword">void</span> <span class="token function">_declspec</span><span class="token punctuation">(</span>naked<span class="token punctuation">)</span> <span class="token function">IdtEntry</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  <span class="token comment">// 关闭写保护</span>
+  mov eax<span class="token punctuation">,</span> cr0
+  and eax<span class="token punctuation">,</span> not <span class="token number">0x10000</span>
+  mov cr0<span class="token punctuation">,</span> eax
+
+  <span class="token comment">// 构造跳转</span>
+  mov al<span class="token punctuation">,</span> <span class="token number">0xe9</span>
+  mov ds<span class="token operator">:</span><span class="token punctuation">[</span><span class="token number">0x8053E540</span><span class="token punctuation">]</span><span class="token punctuation">,</span> al
+  mov eax<span class="token punctuation">,</span> <span class="token number">0xFFB00BDB</span>
+  mov ds<span class="token operator">:</span><span class="token punctuation">[</span><span class="token number">0x8053E541</span><span class="token punctuation">]</span><span class="token punctuation">,</span> eax
+  <span class="token comment">// 初始化计数器</span>
+  xor eax<span class="token punctuation">,</span> eax
+  mov ds<span class="token operator">:</span><span class="token punctuation">[</span><span class="token number">0x8003f180</span><span class="token punctuation">]</span><span class="token punctuation">,</span> eax
+  <span class="token comment">// 恢复写保护</span>
+  mov eax<span class="token punctuation">,</span> cr0
+  or eax<span class="token punctuation">,</span> <span class="token number">0x10000</span>
+  mov cr0<span class="token punctuation">,</span> eax
+  iretd
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">void</span> <span class="token function">go</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  <span class="token keyword">int</span> <span class="token number">0x20</span>
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>DWORD<span class="token punctuation">)</span>IdtEntry <span class="token operator">!=</span> <span class="token number">0x401040</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"Wrong Address!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">exit</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token punctuation">&#125;</span>
+ <span class="token function">go</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">system</span><span class="token punctuation">(</span><span class="token string">"pause"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>最后写一个循环读取计数器的程序：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdio.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdlib.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;Windows.h></span></span>
+
+DWORD g_num <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+DWORD g_flag <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+<span class="token comment">// 设置Hook</span>
+<span class="token keyword">void</span> <span class="token function">_declspec</span><span class="token punctuation">(</span>naked<span class="token punctuation">)</span> <span class="token function">IdtEntry</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  mov eax<span class="token punctuation">,</span> g_flag
+  cmp eax<span class="token punctuation">,</span> <span class="token number">1</span>
+  jne L
+  xor eax<span class="token punctuation">,</span> eax
+  mov g_flag<span class="token punctuation">,</span> <span class="token number">0</span>
+  mov ds<span class="token operator">:</span><span class="token punctuation">[</span><span class="token number">0x8003f180</span><span class="token punctuation">]</span><span class="token punctuation">,</span> eax
+  L<span class="token operator">:</span>
+  mov eax<span class="token punctuation">,</span> ds <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">0x8003f180</span><span class="token punctuation">]</span>
+  mov g_num<span class="token punctuation">,</span> eax
+  iretd
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">void</span> <span class="token function">go</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  <span class="token comment">//mov g_flag, 1</span>
+  <span class="token keyword">int</span> <span class="token number">0x20</span>
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>DWORD<span class="token punctuation">)</span>IdtEntry <span class="token operator">!=</span> <span class="token number">0x401040</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"Wrong Address!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">exit</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token punctuation">&#125;</span>	
+ <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+ <span class="token punctuation">&#123;</span>
+  <span class="token function">go</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"%d\n"</span><span class="token punctuation">,</span> g_num<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">Sleep</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token punctuation">&#125;</span>
+ <span class="token function">system</span><span class="token punctuation">(</span><span class="token string">"pause"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h2 id="2-系统调用"><a href="#2-系统调用" class="headerlink" title="2 系统调用"></a>2 系统调用</h2><h3 id="2-1-3环调用"><a href="#2-1-3环调用" class="headerlink" title="2.1 3环调用"></a>2.1 3环调用</h3><p>分析一下kernel32.dll中的导出函数<em><strong>ReadProcessMemory</strong></em>函数，反编译伪码如下。可以看到，在此函数中又调用了导入函数（来自ntdll.dll）中的<em><strong>NtReadVirtualMemory</strong></em>函数，并没有更多的操作。<br><img src="/images/3-8.png" alt="3-8"><br>继续分析ntdll.dll中的导出函数NtReadVirtualMemory，只有四行汇编代码，给EAX寄存器赋值后就call了一个特定地址(7FFE0300h)的值，而在这个地址上的就是3环进0环所调用的API函数地址，EAX中的值标识了调用哪个0环API函数。<br><img src="/images/3-9.png" alt="3-9"></p>
+<h4 id="模拟3环调用"><a href="#模拟3环调用" class="headerlink" title="模拟3环调用"></a>模拟3环调用</h4><p>因此我们可以在3环直接调用到0环的API，而不使用任何3环API函数。</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdio.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdlib.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;Windows.h></span></span>
+
+DWORD g_temp <span class="token operator">=</span> <span class="token number">0x12345678</span><span class="token punctuation">;</span>
+
+<span class="token keyword">void</span> <span class="token function">MyReadProcessMemory</span><span class="token punctuation">(</span>HANDLE hProcess<span class="token punctuation">,</span> LPCVOID lpBaseAddress<span class="token punctuation">,</span> 
+ LPVOID lpBuffer<span class="token punctuation">,</span> SIZE_T nSize<span class="token punctuation">,</span> SIZE_T<span class="token operator">*</span> lpNumberOfBytesRead<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ DWORD dwBuffer<span class="token punctuation">;</span>
+ HANDLE hProcess <span class="token operator">=</span> <span class="token function">GetCurrentProcess</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">MyReadProcessMemory</span><span class="token punctuation">(</span>hProcess<span class="token punctuation">,</span> <span class="token operator">&amp;</span>g_temp<span class="token punctuation">,</span> <span class="token operator">&amp;</span>dwBuffer<span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"The Buffer is %p\n"</span><span class="token punctuation">,</span> dwBuffer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token function">system</span><span class="token punctuation">(</span><span class="token string">"pause"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">void</span> <span class="token function">MyReadProcessMemory</span><span class="token punctuation">(</span>HANDLE hProcess<span class="token punctuation">,</span> LPCVOID lpBaseAddress<span class="token punctuation">,</span>
+ LPVOID lpBuffer<span class="token punctuation">,</span> SIZE_T nSize<span class="token punctuation">,</span> SIZE_T<span class="token operator">*</span> lpNumberOfBytesRead<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  lea  eax<span class="token punctuation">,</span> <span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x14</span><span class="token punctuation">]</span>
+  push eax<span class="token punctuation">;</span> ReturnLength
+  push<span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x14</span><span class="token punctuation">]</span><span class="token punctuation">;</span> BufferLength
+  push<span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x10</span><span class="token punctuation">]</span><span class="token punctuation">;</span> Buffer
+  push<span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x0C</span><span class="token punctuation">]</span><span class="token punctuation">;</span> BaseAddress
+  push<span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x08</span><span class="token punctuation">]</span><span class="token punctuation">;</span> ProcessHandle
+
+  mov  eax<span class="token punctuation">,</span> <span class="token number">0</span>BAh
+  mov  edx<span class="token punctuation">,</span> esp
+  <span class="token keyword">int</span>  <span class="token number">2</span>eh
+
+  add  esp<span class="token punctuation">,</span> <span class="token number">20</span><span class="token punctuation">;</span> 平栈 
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>使用<em><strong>SystemCall</strong></em>：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token keyword">void</span> <span class="token function">__declspec</span><span class="token punctuation">(</span>naked<span class="token punctuation">)</span> __stdcall <span class="token function">MyReadProcessMemory</span><span class="token punctuation">(</span>HANDLE hProcess<span class="token punctuation">,</span> LPCVOID lpBaseAddress<span class="token punctuation">,</span>
+ LPVOID lpBuffer<span class="token punctuation">,</span> SIZE_T nSize<span class="token punctuation">,</span> SIZE_T<span class="token operator">*</span> lpNumberOfBytesRead<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  mov  eax<span class="token punctuation">,</span> <span class="token number">0</span>BAh
+  mov  edx<span class="token punctuation">,</span> <span class="token number">7FF</span>E0300h
+  call dword ptr<span class="token punctuation">[</span>edx<span class="token punctuation">]</span>
+  retn <span class="token number">14</span>h
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>或者直接调用<em><strong>sysenter</strong></em>：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token keyword">void</span> <span class="token function">MyReadProcessMemory</span><span class="token punctuation">(</span>HANDLE hProcess<span class="token punctuation">,</span> LPCVOID lpBaseAddress<span class="token punctuation">,</span>
+ LPVOID lpBuffer<span class="token punctuation">,</span> SIZE_T nSize<span class="token punctuation">,</span> SIZE_T<span class="token operator">*</span> lpNumberOfBytesRead<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ _asm <span class="token punctuation">&#123;</span>
+  lea  eax<span class="token punctuation">,</span> <span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x14</span><span class="token punctuation">]</span>
+  push eax<span class="token punctuation">;</span> ReturnLength
+  push<span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x14</span><span class="token punctuation">]</span><span class="token punctuation">;</span> BufferLength
+  push<span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x10</span><span class="token punctuation">]</span><span class="token punctuation">;</span> Buffer
+  push<span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x0C</span><span class="token punctuation">]</span><span class="token punctuation">;</span> BaseAddress
+  push<span class="token punctuation">[</span>ebp <span class="token operator">+</span> <span class="token number">0x08</span><span class="token punctuation">]</span><span class="token punctuation">;</span> ProcessHandle
+
+  mov eax<span class="token punctuation">,</span> <span class="token number">0</span>BAh
+  sub esp<span class="token punctuation">,</span> <span class="token number">4</span>		<span class="token comment">// 模拟call ZwReadVirtualMemory </span>
+  push RETADDR	<span class="token comment">// 模拟call KiFastSystemCall</span>
+  mov edx<span class="token punctuation">,</span> esp
+  _emit <span class="token number">0x0F</span>		<span class="token comment">// sysenter</span>
+  _emit <span class="token number">0x34</span>
+  RETADDR<span class="token operator">:</span>
+  add esp<span class="token punctuation">,</span> <span class="token number">18</span>h
+ <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="KUSER-SHARED-DATA"><a href="#KUSER-SHARED-DATA" class="headerlink" title="KUSER_SHARED_DATA"></a>KUSER_SHARED_DATA</h4><p>0环和3环分别由虚拟地址0xFFDF0000和0x7FFE0300映射到此结构体，3环为只读权限，0环可写。其中偏移为0x300的字段指向的是3环进行系统调用时的函数。</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _KUSER_SHARED_DATA
+nt<span class="token operator">!</span>_KUSER_SHARED_DATA
+   <span class="token operator">+</span><span class="token number">0x000</span> TickCountLow     <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x004</span> TickCountMultiplier <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x008</span> InterruptTime    <span class="token operator">:</span> _KSYSTEM_TIME
+   <span class="token operator">+</span><span class="token number">0x014</span> SystemTime       <span class="token operator">:</span> _KSYSTEM_TIME
+   <span class="token operator">+</span><span class="token number">0x020</span> TimeZoneBias     <span class="token operator">:</span> _KSYSTEM_TIME
+   <span class="token operator">+</span><span class="token number">0x02c</span> ImageNumberLow   <span class="token operator">:</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x02e</span> ImageNumberHigh  <span class="token operator">:</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x030</span> NtSystemRoot     <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">260</span><span class="token punctuation">]</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x238</span> MaxStackTraceDepth <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x23c</span> CryptoExponent   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x240</span> TimeZoneId       <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x244</span> Reserved2        <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">8</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x264</span> NtProductType    <span class="token operator">:</span> _NT_PRODUCT_TYPE
+   <span class="token operator">+</span><span class="token number">0x268</span> ProductTypeIsValid <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x26c</span> NtMajorVersion   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x270</span> NtMinorVersion   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x274</span> ProcessorFeatures <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">64</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x2b4</span> Reserved1        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2b8</span> Reserved3        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2bc</span> TimeSlip         <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2c0</span> AlternativeArchitecture <span class="token operator">:</span> _ALTERNATIVE_ARCHITECTURE_TYPE
+   <span class="token operator">+</span><span class="token number">0x2c8</span> SystemExpirationDate <span class="token operator">:</span> _LARGE_INTEGER
+   <span class="token operator">+</span><span class="token number">0x2d0</span> SuiteMask        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2d4</span> KdDebuggerEnabled <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x2d5</span> NXSupportPolicy  <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x2d8</span> ActiveConsoleId  <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2dc</span> DismountCount    <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2e0</span> ComPlusPackage   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2e4</span> LastSystemRITEventTickCount <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2e8</span> NumberOfPhysicalPages <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2ec</span> SafeBootMode     <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x2f0</span> TraceLogging     <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x2f8</span> TestRetInstruction <span class="token operator">:</span> Uint8B
+   <span class="token operator">+</span><span class="token number">0x300</span> SystemCall       <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x304</span> SystemCallReturn <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x308</span> SystemCallPad    <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> Uint8B
+   <span class="token operator">+</span><span class="token number">0x320</span> TickCount        <span class="token operator">:</span> _KSYSTEM_TIME
+   <span class="token operator">+</span><span class="token number">0x320</span> TickCountQuad    <span class="token operator">:</span> Uint8B
+   <span class="token operator">+</span><span class="token number">0x330</span> Cookie           <span class="token operator">:</span> Uint4B<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="3环进0环"><a href="#3环进0环" class="headerlink" title="3环进0环"></a>3环进0环</h4><p><em><strong>KiIntSystemCall</strong></em>：如果通过中断门进0环，固定的中断号为0x2E，CS、EIP的值由中断门描述符确定，ESP、SS的值由TSS寄存器确定。进入0环后执行的函数为<em><strong>NT!KiSystemService</strong></em>。<br><em><strong>KiIntSystemCall</strong></em>：如果是通过sysenter指令进入0环，则CS、ESP、EIP全部由MSR寄存器提供，SS固定为CS+8。进入0环后执行的函数是<em><strong>NT!KiFastCallEntry</strong></em>。</p>
+<h3 id="2-2-保护现场"><a href="#2-2-保护现场" class="headerlink" title="2.2 保护现场"></a>2.2 保护现场</h3><h4 id="栈帧"><a href="#栈帧" class="headerlink" title="栈帧"></a>栈帧</h4><p>用于CPU进入0环后进行保护现场。<br><img src="/images/3-10.png" alt="3-10"></p>
+<h4 id="KPCR"><a href="#KPCR" class="headerlink" title="KPCR"></a>KPCR</h4><p>保存和CPU相关的信息。</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _KPCR
+nt<span class="token operator">!</span>_KPCR
+   <span class="token operator">+</span><span class="token number">0x000</span> NtTib            <span class="token operator">:</span> _NT_TIB
+   <span class="token operator">+</span><span class="token number">0x01c</span> SelfPcr          <span class="token operator">:</span> Ptr32 _KPCR
+   <span class="token operator">+</span><span class="token number">0x020</span> Prcb             <span class="token operator">:</span> Ptr32 _KPRCB
+   <span class="token operator">+</span><span class="token number">0x024</span> Irql             <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x028</span> IRR              <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x02c</span> IrrActive        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x030</span> IDR              <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x034</span> KdVersionBlock   <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x038</span> IDT              <span class="token operator">:</span> Ptr32 _KIDTENTRY
+   <span class="token operator">+</span><span class="token number">0x03c</span> GDT              <span class="token operator">:</span> Ptr32 _KGDTENTRY
+   <span class="token operator">+</span><span class="token number">0x040</span> TSS              <span class="token operator">:</span> Ptr32 _KTSS
+   <span class="token operator">+</span><span class="token number">0x044</span> MajorVersion     <span class="token operator">:</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x046</span> MinorVersion     <span class="token operator">:</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x048</span> SetMember        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x04c</span> StallScaleFactor <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x050</span> DebugActive      <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x051</span> Number           <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x052</span> Spare0           <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x053</span> SecondLevelCacheAssociativity <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x054</span> VdmAlert         <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x058</span> KernelReserved   <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">14</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x090</span> SecondLevelCacheSize <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x094</span> HalReserved      <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x0d4</span> InterruptMode    <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x0d8</span> Spare1           <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x0dc</span> KernelReserved2  <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">17</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x120</span> PrcbData         <span class="token operator">:</span> _KPRCB<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>最后一个字段是KPCR的扩展，可以通过此结构体定位到KPCR：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dd KiProcessorBlock
+<span class="token number">80553e40</span>  ffdff120 <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">80553e50</span>  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">80553e60</span>  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">80553e70</span>  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">80553e80</span>  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">80553e90</span>  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">80553</span>ea0  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">80553</span>eb0  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="KPRCB"><a href="#KPRCB" class="headerlink" title="KPRCB"></a>KPRCB</h4><pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _KPRCB
+nt<span class="token operator">!</span>_KPRCB
+   <span class="token operator">+</span><span class="token number">0x000</span> MinorVersion     <span class="token operator">:</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x002</span> MajorVersion     <span class="token operator">:</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x004</span> CurrentThread    <span class="token operator">:</span> Ptr32 _KTHREAD
+   <span class="token operator">+</span><span class="token number">0x008</span> NextThread       <span class="token operator">:</span> Ptr32 _KTHREAD
+   <span class="token operator">+</span><span class="token number">0x00c</span> IdleThread       <span class="token operator">:</span> Ptr32 _KTHREAD
+   <span class="token operator">+</span><span class="token number">0x010</span> Number           <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x011</span> Reserved         <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x012</span> BuildType        <span class="token operator">:</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x014</span> SetMember        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x018</span> CpuType          <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x019</span> CpuID            <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x01a</span> CpuStep          <span class="token operator">:</span> Uint2B
+   <span class="token operator">+</span><span class="token number">0x01c</span> ProcessorState   <span class="token operator">:</span> _KPROCESSOR_STATE
+   <span class="token operator">+</span><span class="token number">0x33c</span> KernelReserved   <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x37c</span> HalReserved      <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x3bc</span> PrcbPad0         <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">92</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x418</span> LockQueue        <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> _KSPIN_LOCK_QUEUE
+   <span class="token operator">+</span><span class="token number">0x498</span> PrcbPad1         <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">8</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x4a0</span> NpxThread        <span class="token operator">:</span> Ptr32 _KTHREAD
+   <span class="token operator">+</span><span class="token number">0x4a4</span> InterruptCount   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4a8</span> KernelTime       <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4ac</span> UserTime         <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4b0</span> DpcTime          <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4b4</span> DebugDpcTime     <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4b8</span> InterruptTime    <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4bc</span> AdjustDpcThreshold <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4c0</span> PageColor        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4c4</span> SkipTick         <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4c8</span> MultiThreadSetBusy <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x4c9</span> Spare2           <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x4cc</span> ParentNode       <span class="token operator">:</span> Ptr32 _KNODE
+   <span class="token operator">+</span><span class="token number">0x4d0</span> MultiThreadProcessorSet <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4d4</span> MultiThreadSetMaster <span class="token operator">:</span> Ptr32 _KPRCB
+   <span class="token operator">+</span><span class="token number">0x4d8</span> ThreadStartCount <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4e0</span> CcFastReadNoWait <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4e4</span> CcFastReadWait   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4e8</span> CcFastReadNotPossible <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4ec</span> CcCopyReadNoWait <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4f0</span> CcCopyReadWait   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4f4</span> CcCopyReadNoWaitMiss <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4f8</span> KeAlignmentFixupCount <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x4fc</span> KeContextSwitches <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x500</span> KeDcacheFlushCount <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x504</span> KeExceptionDispatchCount <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x508</span> KeFirstLevelTbFills <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x50c</span> KeFloatingEmulationCount <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x510</span> KeIcacheFlushCount <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x514</span> KeSecondLevelTbFills <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x518</span> KeSystemCalls    <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x51c</span> SpareCounter0    <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x520</span> PPLookasideList  <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> _PP_LOOKASIDE_LIST
+   <span class="token operator">+</span><span class="token number">0x5a0</span> PPNPagedLookasideList <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">32</span><span class="token punctuation">]</span> _PP_LOOKASIDE_LIST
+   <span class="token operator">+</span><span class="token number">0x6a0</span> PPPagedLookasideList <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">32</span><span class="token punctuation">]</span> _PP_LOOKASIDE_LIST
+   <span class="token operator">+</span><span class="token number">0x7a0</span> PacketBarrier    <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x7a4</span> ReverseStall     <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x7a8</span> IpiFrame         <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x7ac</span> PrcbPad2         <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">52</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x7e0</span> CurrentPacket    <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x7ec</span> TargetSet        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x7f0</span> WorkerRoutine    <span class="token operator">:</span> Ptr32     <span class="token keyword">void</span> 
+   <span class="token operator">+</span><span class="token number">0x7f4</span> IpiFrozen        <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x7f8</span> PrcbPad3         <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">40</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x820</span> RequestSummary   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x824</span> SignalDone       <span class="token operator">:</span> Ptr32 _KPRCB
+   <span class="token operator">+</span><span class="token number">0x828</span> PrcbPad4         <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">56</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x860</span> DpcListHead      <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x868</span> DpcStack         <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x86c</span> DpcCount         <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x870</span> DpcQueueDepth    <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x874</span> DpcRoutineActive <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x878</span> DpcInterruptRequested <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x87c</span> DpcLastCount     <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x880</span> DpcRequestRate   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x884</span> MaximumDpcQueueDepth <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x888</span> MinimumDpcRate   <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x88c</span> QuantumEnd       <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x890</span> PrcbPad5         <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x8a0</span> DpcLock          <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x8a4</span> PrcbPad6         <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">28</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x8c0</span> CallDpc          <span class="token operator">:</span> _KDPC
+   <span class="token operator">+</span><span class="token number">0x8e0</span> ChainedInterruptList <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x8e4</span> LookasideIrpFloat <span class="token operator">:</span> Int4B
+   <span class="token operator">+</span><span class="token number">0x8e8</span> SpareFields0     <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">6</span><span class="token punctuation">]</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x900</span> VendorString     <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">13</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x90d</span> InitialApicId    <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x90e</span> LogicalProcessorsPerPhysicalProcessor <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x910</span> MHz              <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x914</span> FeatureBits      <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x918</span> UpdateSignature  <span class="token operator">:</span> _LARGE_INTEGER
+   <span class="token operator">+</span><span class="token number">0x920</span> NpxSaveArea      <span class="token operator">:</span> _FX_SAVE_AREA
+   <span class="token operator">+</span><span class="token number">0xb30</span> PowerState       <span class="token operator">:</span> _PROCESSOR_POWER_STATE<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="ETHREAD"><a href="#ETHREAD" class="headerlink" title="ETHREAD"></a>ETHREAD</h4><p>存储线程相关信息：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _ETHREAD
+nt<span class="token operator">!</span>_ETHREAD
+   <span class="token operator">+</span><span class="token number">0x000</span> Tcb              <span class="token operator">:</span> _KTHREAD
+   <span class="token operator">+</span><span class="token number">0x1c0</span> CreateTime       <span class="token operator">:</span> _LARGE_INTEGER
+   <span class="token operator">+</span><span class="token number">0x1c0</span> NestedFaultCount <span class="token operator">:</span> Pos <span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">2</span> Bits
+   <span class="token operator">+</span><span class="token number">0x1c0</span> ApcNeeded        <span class="token operator">:</span> Pos <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x1c8</span> ExitTime         <span class="token operator">:</span> _LARGE_INTEGER
+   <span class="token operator">+</span><span class="token number">0x1c8</span> LpcReplyChain    <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x1c8</span> KeyedWaitChain   <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x1d0</span> ExitStatus       <span class="token operator">:</span> Int4B
+   <span class="token operator">+</span><span class="token number">0x1d0</span> OfsChain         <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x1d4</span> PostBlockList    <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x1dc</span> TerminationPort  <span class="token operator">:</span> Ptr32 _TERMINATION_PORT
+   <span class="token operator">+</span><span class="token number">0x1dc</span> ReaperLink       <span class="token operator">:</span> Ptr32 _ETHREAD
+   <span class="token operator">+</span><span class="token number">0x1dc</span> KeyedWaitValue   <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x1e0</span> ActiveTimerListLock <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x1e4</span> ActiveTimerListHead <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x1ec</span> Cid              <span class="token operator">:</span> _CLIENT_ID
+   <span class="token operator">+</span><span class="token number">0x1f4</span> LpcReplySemaphore <span class="token operator">:</span> _KSEMAPHORE
+   <span class="token operator">+</span><span class="token number">0x1f4</span> KeyedWaitSemaphore <span class="token operator">:</span> _KSEMAPHORE
+   <span class="token operator">+</span><span class="token number">0x208</span> LpcReplyMessage  <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x208</span> LpcWaitingOnPort <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x20c</span> ImpersonationInfo <span class="token operator">:</span> Ptr32 _PS_IMPERSONATION_INFORMATION
+   <span class="token operator">+</span><span class="token number">0x210</span> IrpList          <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x218</span> TopLevelIrp      <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x21c</span> DeviceToVerify   <span class="token operator">:</span> Ptr32 _DEVICE_OBJECT
+   <span class="token operator">+</span><span class="token number">0x220</span> ThreadsProcess   <span class="token operator">:</span> Ptr32 _EPROCESS
+   <span class="token operator">+</span><span class="token number">0x224</span> StartAddress     <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x228</span> Win32StartAddress <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x228</span> LpcReceivedMessageId <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x22c</span> ThreadListEntry  <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x234</span> RundownProtect   <span class="token operator">:</span> _EX_RUNDOWN_REF
+   <span class="token operator">+</span><span class="token number">0x238</span> ThreadLock       <span class="token operator">:</span> _EX_PUSH_LOCK
+   <span class="token operator">+</span><span class="token number">0x23c</span> LpcReplyMessageId <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x240</span> ReadClusterSize  <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x244</span> GrantedAccess    <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x248</span> CrossThreadFlags <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x248</span> Terminated       <span class="token operator">:</span> Pos <span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x248</span> DeadThread       <span class="token operator">:</span> Pos <span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x248</span> HideFromDebugger <span class="token operator">:</span> Pos <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x248</span> ActiveImpersonationInfo <span class="token operator">:</span> Pos <span class="token number">3</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x248</span> SystemThread     <span class="token operator">:</span> Pos <span class="token number">4</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x248</span> HardErrorsAreDisabled <span class="token operator">:</span> Pos <span class="token number">5</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x248</span> BreakOnTermination <span class="token operator">:</span> Pos <span class="token number">6</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x248</span> SkipCreationMsg  <span class="token operator">:</span> Pos <span class="token number">7</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x248</span> SkipTerminationMsg <span class="token operator">:</span> Pos <span class="token number">8</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x24c</span> SameThreadPassiveFlags <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x24c</span> ActiveExWorker   <span class="token operator">:</span> Pos <span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x24c</span> ExWorkerCanWaitUser <span class="token operator">:</span> Pos <span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x24c</span> MemoryMaker      <span class="token operator">:</span> Pos <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x250</span> SameThreadApcFlags <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x250</span> LpcReceivedMsgIdValid <span class="token operator">:</span> Pos <span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x250</span> LpcExitThreadCalled <span class="token operator">:</span> Pos <span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x250</span> AddressSpaceOwner <span class="token operator">:</span> Pos <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">1</span> Bit
+   <span class="token operator">+</span><span class="token number">0x254</span> ForwardClusterOnly <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x255</span> DisablePageFaultClustering <span class="token operator">:</span> UChar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="KTHREAD"><a href="#KTHREAD" class="headerlink" title="KTHREAD"></a>KTHREAD</h4><pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _KTHREAD
+nt<span class="token operator">!</span>_KTHREAD
+   <span class="token operator">+</span><span class="token number">0x000</span> Header           <span class="token operator">:</span> _DISPATCHER_HEADER
+   <span class="token operator">+</span><span class="token number">0x010</span> MutantListHead   <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x018</span> InitialStack     <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x01c</span> StackLimit       <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x020</span> Teb              <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x024</span> TlsArray         <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x028</span> KernelStack      <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x02c</span> DebugActive      <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x02d</span> State            <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x02e</span> Alerted          <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x030</span> Iopl             <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x031</span> NpxState         <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x032</span> Saturation       <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x033</span> Priority         <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x034</span> ApcState         <span class="token operator">:</span> _KAPC_STATE
+   <span class="token operator">+</span><span class="token number">0x04c</span> ContextSwitches  <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x050</span> IdleSwapBlock    <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x051</span> Spare0           <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> UChar
+   <span class="token operator">+</span><span class="token number">0x054</span> WaitStatus       <span class="token operator">:</span> Int4B
+   <span class="token operator">+</span><span class="token number">0x058</span> WaitIrql         <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x059</span> WaitMode         <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x05a</span> WaitNext         <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x05b</span> WaitReason       <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x05c</span> WaitBlockList    <span class="token operator">:</span> Ptr32 _KWAIT_BLOCK
+   <span class="token operator">+</span><span class="token number">0x060</span> WaitListEntry    <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x060</span> SwapListEntry    <span class="token operator">:</span> _SINGLE_LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x068</span> WaitTime         <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x06c</span> BasePriority     <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x06d</span> DecrementCount   <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x06e</span> PriorityDecrement <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x06f</span> Quantum          <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x070</span> WaitBlock        <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span> _KWAIT_BLOCK
+   <span class="token operator">+</span><span class="token number">0x0d0</span> LegoData         <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x0d4</span> KernelApcDisable <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x0d8</span> UserAffinity     <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x0dc</span> SystemAffinityActive <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x0dd</span> PowerState       <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x0de</span> NpxIrql          <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x0df</span> InitialNode      <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x0e0</span> ServiceTable     <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x0e4</span> Queue            <span class="token operator">:</span> Ptr32 _KQUEUE
+   <span class="token operator">+</span><span class="token number">0x0e8</span> ApcQueueLock     <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x0f0</span> Timer            <span class="token operator">:</span> _KTIMER
+   <span class="token operator">+</span><span class="token number">0x118</span> QueueListEntry   <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x120</span> SoftAffinity     <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x124</span> Affinity         <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x128</span> Preempted        <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x129</span> ProcessReadyQueue <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x12a</span> KernelStackResident <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x12b</span> NextProcessor    <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x12c</span> CallbackStack    <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x130</span> Win32Thread      <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x134</span> TrapFrame        <span class="token operator">:</span> Ptr32 _KTRAP_FRAME
+   <span class="token operator">+</span><span class="token number">0x138</span> ApcStatePointer  <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> Ptr32 _KAPC_STATE
+   <span class="token operator">+</span><span class="token number">0x140</span> PreviousMode     <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x141</span> EnableStackSwap  <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x142</span> LargeStack       <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x143</span> ResourceIndex    <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x144</span> KernelTime       <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x148</span> UserTime         <span class="token operator">:</span> Uint4B
+   <span class="token operator">+</span><span class="token number">0x14c</span> SavedApcState    <span class="token operator">:</span> _KAPC_STATE
+   <span class="token operator">+</span><span class="token number">0x164</span> Alertable        <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x165</span> ApcStateIndex    <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x166</span> ApcQueueable     <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x167</span> AutoAlignment    <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x168</span> StackBase        <span class="token operator">:</span> Ptr32 Void
+   <span class="token operator">+</span><span class="token number">0x16c</span> SuspendApc       <span class="token operator">:</span> _KAPC
+   <span class="token operator">+</span><span class="token number">0x19c</span> SuspendSemaphore <span class="token operator">:</span> _KSEMAPHORE
+   <span class="token operator">+</span><span class="token number">0x1b0</span> ThreadListEntry  <span class="token operator">:</span> _LIST_ENTRY
+   <span class="token operator">+</span><span class="token number">0x1b8</span> FreezeCount      <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x1b9</span> SuspendCount     <span class="token operator">:</span> Char
+   <span class="token operator">+</span><span class="token number">0x1ba</span> IdealProcessor   <span class="token operator">:</span> UChar
+   <span class="token operator">+</span><span class="token number">0x1bb</span> DisableBoost     <span class="token operator">:</span> UChar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="SST"><a href="#SST" class="headerlink" title="SST"></a>SST</h4><p>Windows中的系统服务表（System Service Table）有两个，第一个是内核中的核心函数导出表，第二个是GUI相关的函数非导出表：<br><img src="/images/3-11.png" alt="3-11"></p>
+<h4 id="SSDT"><a href="#SSDT" class="headerlink" title="SSDT"></a>SSDT</h4><p>SSDT中一共包含4个STT，只有前两个是有效的。</p>
+<h3 id="2-3-0环调用"><a href="#2-3-0环调用" class="headerlink" title="2.3 0环调用"></a>2.3 0环调用</h3><h4 id="KiSystemService"><a href="#KiSystemService" class="headerlink" title="KiSystemService"></a>KiSystemService</h4><p>中断门进0环后调用：</p>
+<pre class="line-numbers language-nasm" data-language="nasm"><code class="language-nasm">push    <span class="token number">0</span>
+push    <span class="token register variable">ebp</span>             <span class="token comment">; 从Trap Frame+0x64开始，依次压入：</span>
+                        <span class="token comment">; Errcode, EBP, EBX, ESI, EDI, 标志寄存器</span>
+push    <span class="token register variable">ebx</span>
+push    <span class="token register variable">esi</span>
+push    <span class="token register variable">edi</span>
+push    <span class="token register variable">fs</span>
+mov     <span class="token register variable">ebx</span>, <span class="token number">30h</span> <span class="token comment">; '0'  ; 更改fs，使其指向KPCR</span>
+mov     <span class="token register variable">fs</span>, <span class="token register variable">bx</span>
+assume <span class="token register variable">fs</span>:nothing
+push    dword ptr <span class="token register variable">ds</span>:<span class="token number">0FFDFF000h</span> <span class="token comment">; 压入KPCR中的第一个字段作为ExceptionList</span>
+mov     dword ptr <span class="token register variable">ds</span>:<span class="token number">0FFDFF000h</span>, <span class="token number">0FFFFFFFFh</span> <span class="token comment">; 将 ExceptionList 置为 -1</span>
+mov     <span class="token register variable">esi</span>, <span class="token register variable">ds</span>:<span class="token number">0FFDFF124h</span> <span class="token comment">; 获得_KPRCB中的CurrentThread字段</span>
+push    dword ptr <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">140h</span><span class="token operator">]</span> <span class="token comment">; 压入_KTHREAD中的PreviousMode字段，0环调用为0，3环为1</span>
+sub     <span class="token register variable">esp</span>, <span class="token number">48h</span>        <span class="token comment">; 抬栈，ESP指向栈帧开头</span>
+mov     <span class="token register variable">ebx</span>, <span class="token operator">[</span><span class="token register variable">esp</span><span class="token operator">+</span><span class="token number">68h</span><span class="token operator">+</span>arg_0<span class="token operator">]</span> <span class="token comment">; 获取栈帧中保存的CS</span>
+and     <span class="token register variable">ebx</span>, <span class="token number">1</span>          <span class="token comment">; 判断是否0环权限</span>
+mov     <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">140h</span><span class="token operator">]</span>, <span class="token register variable">bl</span>  <span class="token comment">; 结果放入当前进程的PreviousMode中</span>
+mov     <span class="token register variable">ebp</span>, <span class="token register variable">esp</span>
+mov     <span class="token register variable">ebx</span>, <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">134h</span><span class="token operator">]</span> <span class="token comment">; 获取当前进程的栈帧</span>
+mov     <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">3Ch</span><span class="token operator">]</span>, <span class="token register variable">ebx</span>  <span class="token comment">; 将栈帧中的EDX的值赋予当前进程的栈帧地址</span>
+mov     <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">134h</span><span class="token operator">]</span>, <span class="token register variable">ebp</span> <span class="token comment">; 将当前进程的栈帧替换为上面构造的新栈帧</span>
+cld
+mov     <span class="token register variable">ebx</span>, <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">60h</span><span class="token operator">]</span>  <span class="token comment">; 获取3环EBP</span>
+mov     <span class="token register variable">edi</span>, <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">68h</span><span class="token operator">]</span>  <span class="token comment">; 获取3环EIP</span>
+mov     <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">0Ch</span><span class="token operator">]</span>, <span class="token register variable">edx</span>  <span class="token comment">; 将 3环 的参数列表存入到 DbgArgPointer</span>
+mov     dword ptr <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">8</span><span class="token operator">]</span>, <span class="token number">0BADB0D00h</span>
+mov     <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">0</span><span class="token operator">]</span>, <span class="token register variable">ebx</span>    <span class="token comment">; 赋值DbgEBP,DbgEIP</span>
+mov     <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">4</span><span class="token operator">]</span>, <span class="token register variable">edi</span>
+test    byte ptr <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">2Ch</span><span class="token operator">]</span>, <span class="token number">0FFh</span> <span class="token comment">; 检测当前进程的DebugActive</span>
+jnz     Dr_kss_a        <span class="token comment">; 如果被调试，则跳转</span>
+<span class="token label function">loc_8053E4EF:</span>
+sti
+jmp     loc_8053E5CD    <span class="token comment">; 跳转继续执行</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="KiFastCallEntry"><a href="#KiFastCallEntry" class="headerlink" title="KiFastCallEntry"></a>KiFastCallEntry</h4><p>sysenter进0环后调用：</p>
+<pre class="line-numbers language-nasm" data-language="nasm"><code class="language-nasm">mov     <span class="token register variable">ecx</span>, <span class="token number">23h</span> <span class="token comment">; '#'</span>
+push    <span class="token number">30h</span> <span class="token comment">; '0'       ; 切换fs</span>
+pop     <span class="token register variable">fs</span>
+mov     <span class="token register variable">ds</span>, <span class="token register variable">ecx</span>         <span class="token comment">; 加载ds和es</span>
+mov     <span class="token register variable">es</span>, <span class="token register variable">ecx</span>
+mov     <span class="token register variable">ecx</span>, <span class="token register variable">ds</span>:<span class="token number">0FFDFF040h</span> <span class="token comment">; 获取KPCR中的TSS</span>
+mov     <span class="token register variable">esp</span>, <span class="token operator">[</span><span class="token register variable">ecx</span><span class="token operator">+</span><span class="token number">4</span><span class="token operator">]</span>    <span class="token comment">; 获取0环ESP</span>
+push    <span class="token number">23h</span> <span class="token comment">; '#'       ; 依次压入HardwareSS,HardwareESP,EFlags</span>
+push    <span class="token register variable">edx</span>
+pushf
+<span class="token label function">loc_8053E55A:</span>           <span class="token comment">; 更新EFlags</span>
+push    <span class="token number">2</span>
+add     <span class="token register variable">edx</span>, <span class="token number">8</span>          <span class="token comment">; 获取到真正的函数参数地址</span>
+popf
+or      <span class="token operator">[</span><span class="token register variable">esp</span><span class="token operator">+</span><span class="token number">0Ch</span><span class="token operator">+</span>var_B<span class="token operator">]</span>, <span class="token number">2</span> <span class="token comment">; 设置栈帧中的EFlags？</span>
+push    <span class="token number">1Bh</span>             <span class="token comment">; 依次压入CS, EIP, ...</span>
+push    dword ptr <span class="token register variable">ds</span>:<span class="token number">0FFDF0304h</span>
+push    <span class="token number">0</span>
+push    <span class="token register variable">ebp</span>
+push    <span class="token register variable">ebx</span>
+push    <span class="token register variable">esi</span>
+push    <span class="token register variable">edi</span>
+mov     <span class="token register variable">ebx</span>, <span class="token register variable">ds</span>:<span class="token number">0FFDFF01Ch</span> <span class="token comment">; 获取KPCR</span>
+push    <span class="token number">3Bh</span> <span class="token comment">; ';'       ; 压入FS</span>
+mov     <span class="token register variable">esi</span>, <span class="token operator">[</span><span class="token register variable">ebx</span><span class="token operator">+</span><span class="token number">124h</span><span class="token operator">]</span> <span class="token comment">; 获取CurrentThread</span>
+push    dword ptr <span class="token operator">[</span><span class="token register variable">ebx</span><span class="token operator">]</span> <span class="token comment">; 压入ExceptionList</span>
+mov     dword ptr <span class="token operator">[</span><span class="token register variable">ebx</span><span class="token operator">]</span>, <span class="token number">0FFFFFFFFh</span> <span class="token comment">; 赋值ExceptionList为-1</span>
+mov     <span class="token register variable">ebp</span>, <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">18h</span><span class="token operator">]</span>  <span class="token comment">; 获取当前进程的栈帧</span>
+push    <span class="token number">1</span>
+sub     <span class="token register variable">esp</span>, <span class="token number">48h</span>        <span class="token comment">; 抬栈，指向新的栈帧开头</span>
+sub     <span class="token register variable">ebp</span>, <span class="token number">29Ch</span>
+mov     byte ptr <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">140h</span><span class="token operator">]</span>, <span class="token number">1</span> <span class="token comment">; 赋值当前进程中的PreviousMode</span>
+cmp     <span class="token register variable">ebp</span>, <span class="token register variable">esp</span>        <span class="token comment">; 判断是否为VX86线程</span>
+jnz     short loc_8053E53C
+<span class="token label function">loc_8053E53C:</span>
+jmp     short loc_8053E519
+<span class="token comment">; END OF FUNCTION CHUNK FOR _KiFastCallEntry</span>
+and     dword ptr <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">2Ch</span><span class="token operator">]</span>, <span class="token number">0</span> <span class="token comment">; DR7</span>
+test    byte ptr <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">2Ch</span><span class="token operator">]</span>, <span class="token number">0FFh</span> <span class="token comment">; DebugActive</span>
+mov     <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">134h</span><span class="token operator">]</span>, <span class="token register variable">ebp</span> <span class="token comment">; 替换栈帧</span>
+jnz     Dr_FastCallDrSave
+<span class="token label function">loc_8053E5B6:</span>           <span class="token comment">; Debug相关</span>
+mov     <span class="token register variable">ebx</span>, <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">60h</span><span class="token operator">]</span>
+mov     <span class="token register variable">edi</span>, <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">68h</span><span class="token operator">]</span>
+mov     <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">0Ch</span><span class="token operator">]</span>, <span class="token register variable">edx</span>
+mov     dword ptr <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">8</span><span class="token operator">]</span>, <span class="token number">0BADB0D00h</span>
+mov     <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">0</span><span class="token operator">]</span>, <span class="token register variable">ebx</span>
+mov     <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">4</span><span class="token operator">]</span>, <span class="token register variable">edi</span>
+sti
+<span class="token label function">loc_8053E5CD:</span>           <span class="token comment">; KiFastCallEntry和KiSystemService的共同调用部分</span>
+mov     <span class="token register variable">edi</span>, <span class="token register variable">eax</span>        <span class="token comment">; 获取3环传入的服务号</span>
+shr     <span class="token register variable">edi</span>, <span class="token number">8</span>
+and     <span class="token register variable">edi</span>, <span class="token number">30h</span>
+mov     <span class="token register variable">ecx</span>, <span class="token register variable">edi</span>
+add     <span class="token register variable">edi</span>, <span class="token operator">[</span><span class="token register variable">esi</span><span class="token operator">+</span><span class="token number">0E0h</span><span class="token operator">]</span> <span class="token comment">; 加上SST的基址</span>
+mov     <span class="token register variable">ebx</span>, <span class="token register variable">eax</span>
+and     <span class="token register variable">eax</span>, <span class="token number">0FFFh</span>      <span class="token comment">; 判断是否越界</span>
+cmp     <span class="token register variable">eax</span>, <span class="token operator">[</span><span class="token register variable">edi</span><span class="token operator">+</span><span class="token number">8</span><span class="token operator">]</span>
+jnb     _KiBBTUnexpectedRange
+cmp     <span class="token register variable">ecx</span>, <span class="token number">10h</span>        <span class="token comment">; 判断是否是第2个SST中的函数</span>
+jnz     short loc_8053E60C 
+<span class="token label function">loc_8053E60C:</span>           <span class="token comment">; KeSystemCalls 自增 1</span>
+inc     dword ptr <span class="token register variable">ds</span>:<span class="token number">0FFDFF638h</span>
+mov     <span class="token register variable">esi</span>, <span class="token register variable">edx</span>        <span class="token comment">; 获取参数地址</span>
+mov     <span class="token register variable">ebx</span>, <span class="token operator">[</span><span class="token register variable">edi</span><span class="token operator">+</span><span class="token number">0Ch</span><span class="token operator">]</span>  <span class="token comment">; 获取SSDT参数表地址</span>
+xor     <span class="token register variable">ecx</span>, <span class="token register variable">ecx</span>
+mov     <span class="token register variable">cl</span>, <span class="token operator">[</span><span class="token register variable">eax</span><span class="token operator">+</span><span class="token register variable">ebx</span><span class="token operator">]</span>   <span class="token comment">; 获取参数长度</span>
+mov     <span class="token register variable">edi</span>, <span class="token operator">[</span><span class="token register variable">edi</span><span class="token operator">]</span>      <span class="token comment">; 获取函数地址表</span>
+mov     <span class="token register variable">ebx</span>, <span class="token operator">[</span><span class="token register variable">edi</span><span class="token operator">+</span><span class="token register variable">eax</span><span class="token operator">*</span><span class="token number">4</span><span class="token operator">]</span> <span class="token comment">; 获取对应的函数</span>
+sub     <span class="token register variable">esp</span>, <span class="token register variable">ecx</span>        <span class="token comment">; 抬栈</span>
+shr     <span class="token register variable">ecx</span>, <span class="token number">2</span>
+mov     <span class="token register variable">edi</span>, <span class="token register variable">esp</span>
+cmp     <span class="token register variable">esi</span>, <span class="token register variable">ds</span>:_MmUserProbeAddress <span class="token comment">; 判断拷贝的源地址是否超出用户态能读取的宽度</span>
+jnb     loc_8053E7DC
+<span class="token label function">loc_8053E634:</span>           <span class="token comment">; 将参数从3环拷贝到0环</span>
+rep movsd
+call    <span class="token register variable">ebx</span>             <span class="token comment">; 函数调用！</span>
+<span class="token label function">loc_8053E638:</span>
+mov     <span class="token register variable">esp</span>, <span class="token register variable">ebp</span>
+<span class="token label function">loc_8053E63A:</span>
+mov     <span class="token register variable">ecx</span>, <span class="token register variable">ds</span>:<span class="token number">0FFDFF124h</span>
+mov     <span class="token register variable">edx</span>, <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">3Ch</span><span class="token operator">]</span>
+mov     <span class="token operator">[</span><span class="token register variable">ecx</span><span class="token operator">+</span><span class="token number">134h</span><span class="token operator">]</span>, <span class="token register variable">edx</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="2-4-实验5：驱动实现-SSDT-Hook"><a href="#2-4-实验5：驱动实现-SSDT-Hook" class="headerlink" title="2.4 实验5：驱动实现 SSDT Hook"></a>2.4 实验5：驱动实现 SSDT Hook</h3><pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntddk.h></span>    </span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntstatus.h></span></span>
+
+ULONG OriginNtOpenProcess<span class="token punctuation">;</span>
+
+<span class="token keyword">typedef</span> <span class="token function">NTSTATUS</span><span class="token punctuation">(</span><span class="token operator">*</span>NTOPENPROCESS<span class="token punctuation">)</span><span class="token punctuation">(</span>
+    PHANDLE ProcessHandle<span class="token punctuation">,</span>
+    ACCESS_MASK DesiredAccess<span class="token punctuation">,</span>
+    POBJECT_ATTRIBUTES ObjectAttributes<span class="token punctuation">,</span>
+    PCLIENT_ID ClientId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// SST</span>
+<span class="token keyword">typedef</span> <span class="token keyword">struct</span> <span class="token class-name">_KSYSTEM_SERVICE_TABLE</span>
+<span class="token punctuation">&#123;</span>
+    PULONG  ServiceTableBase<span class="token punctuation">;</span>			<span class="token comment">// 服务函数地址表基址  </span>
+    PULONG  ServiceCounterTableBase<span class="token punctuation">;</span>		<span class="token comment">// SSDT函数被调用的次数</span>
+    ULONG   NumberOfService<span class="token punctuation">;</span>			<span class="token comment">// 服务函数的个数  </span>
+    PULONG   ParamTableBase<span class="token punctuation">;</span>			<span class="token comment">// 服务函数参数表基址   </span>
+<span class="token punctuation">&#125;</span> KSYSTEM_SERVICE_TABLE<span class="token punctuation">,</span> <span class="token operator">*</span> PKSYSTEM_SERVICE_TABLE<span class="token punctuation">;</span>
+
+
+<span class="token comment">// SSDT</span>
+<span class="token keyword">typedef</span> <span class="token keyword">struct</span> <span class="token class-name">_KSERVICE_TABLE_DESCRIPTOR</span>
+<span class="token punctuation">&#123;</span>
+    KSYSTEM_SERVICE_TABLE   ntoskrnl<span class="token punctuation">;</span>		<span class="token comment">// ntoskrnl.exe 的服务函数  </span>
+    KSYSTEM_SERVICE_TABLE   win32k<span class="token punctuation">;</span>			<span class="token comment">// win32k.sys 的服务函数(GDI32.dll/User32.dll 的内核支持)  </span>
+    KSYSTEM_SERVICE_TABLE   notUsed1<span class="token punctuation">;</span>
+    KSYSTEM_SERVICE_TABLE   notUsed2<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>KSERVICE_TABLE_DESCRIPTOR<span class="token punctuation">,</span> <span class="token operator">*</span> PKSERVICE_TABLE_DESCRIPTOR<span class="token punctuation">;</span>
+
+<span class="token keyword">extern</span> PKSERVICE_TABLE_DESCRIPTOR KeServiceDescriptorTable<span class="token punctuation">;</span> <span class="token comment">// SSDT</span>
+
+<span class="token comment">// 开启写保护</span>
+VOID <span class="token function">PageProtectOn</span><span class="token punctuation">(</span>VOID<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    __asm <span class="token punctuation">&#123;</span>
+        mov  eax<span class="token punctuation">,</span> cr0
+        or eax<span class="token punctuation">,</span> <span class="token number">10000</span>h
+        mov  cr0<span class="token punctuation">,</span> eax
+        sti
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 关闭写保护</span>
+VOID <span class="token function">PageProtectOff</span><span class="token punctuation">(</span>VOID<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    __asm <span class="token punctuation">&#123;</span>
+        cli
+        mov  eax<span class="token punctuation">,</span> cr0
+        and eax<span class="token punctuation">,</span> not <span class="token number">10000</span>h
+        mov  cr0<span class="token punctuation">,</span> eax
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// Hook函数</span>
+NTSTATUS <span class="token function">Hook</span><span class="token punctuation">(</span>
+    PHANDLE ProcessHandle<span class="token punctuation">,</span>
+    ACCESS_MASK DesiredAccess<span class="token punctuation">,</span>
+    POBJECT_ATTRIBUTES ObjectAttributes<span class="token punctuation">,</span>
+    PCLIENT_ID ClientId
+<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Hooked!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>NTOPENPROCESS<span class="token punctuation">)</span>OriginNtOpenProcess<span class="token punctuation">)</span><span class="token punctuation">(</span>ProcessHandle<span class="token punctuation">,</span> DesiredAccess<span class="token punctuation">,</span> ObjectAttributes<span class="token punctuation">,</span> ClientId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 挂钩</span>
+NTSTATUS <span class="token function">SetHook</span><span class="token punctuation">(</span>VOID<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">PageProtectOff</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    OriginNtOpenProcess <span class="token operator">=</span> KeServiceDescriptorTable<span class="token operator">-></span>ntoskrnl<span class="token punctuation">.</span>ServiceTableBase<span class="token punctuation">[</span><span class="token number">0x7A</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    KeServiceDescriptorTable<span class="token operator">-></span>ntoskrnl<span class="token punctuation">.</span>ServiceTableBase<span class="token punctuation">[</span><span class="token number">0x7A</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">(</span>ULONG<span class="token punctuation">)</span>Hook<span class="token punctuation">;</span>
+    <span class="token function">PageProtectOn</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"NtOpenProcess Has Been Hooked!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 脱钩</span>
+NTSTATUS <span class="token function">UnsetHook</span><span class="token punctuation">(</span>VOID<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">PageProtectOff</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    KeServiceDescriptorTable<span class="token operator">-></span>ntoskrnl<span class="token punctuation">.</span>ServiceTableBase<span class="token punctuation">[</span><span class="token number">0x7A</span><span class="token punctuation">]</span> <span class="token operator">=</span> OriginNtOpenProcess<span class="token punctuation">;</span>
+    <span class="token function">PageProtectOn</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"NtOpenProcess Has Been Unhooked!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 卸载驱动</span>
+NTSTATUS <span class="token function">UnloadDriver</span><span class="token punctuation">(</span>PDRIVER_OBJECT pDriObj<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">UnsetHook</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Unload Driver!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+
+NTSTATUS <span class="token function">DriverEntry</span><span class="token punctuation">(</span>PDRIVER_OBJECT pDriver<span class="token punctuation">,</span> PUNICODE_STRING RegistryPath<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">DbgPrint</span><span class="token punctuation">(</span><span class="token string">"Load Driver!\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    pDriver<span class="token operator">-></span>DriverUnload <span class="token operator">=</span> UnloadDriver<span class="token punctuation">;</span>
+
+    <span class="token function">SetHook</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h2 id="3-参考"><a href="#3-参考" class="headerlink" title="3 参考"></a>3 参考</h2><ul>
+<li>羽夏的博客：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/wingsummer/p/15530605.html">https://www.cnblogs.com/wingsummer/p/15530605.html</a></li>
+<li>lzyddf的博客：<a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_41988448/category_9429987_2.html">https://blog.csdn.net/qq_41988448/category_9429987_2.html</a></li>
+<li>周壑的视频教程： <a target="_blank" rel="noopener" href="https://space.bilibili.com/37877654/channel/seriesdetail?sid=1467296">https://space.bilibili.com/37877654/channel/seriesdetail?sid=1467296</a></li>
+</ul>
+
+        </article>
+        <section class="post-near">
+            <ul>
+                
+                    <li>上一篇: 看完啦 (つд⊂)</li>
+                
+                
+                    <li>下一篇: <a href="/Windows/3a485e0c9d5a.html">x86保护模式——Windows安全入门（二）</a></li>
+                
+            </ul>
+        </section>
+        
+    
+        <section class="post-author">
+        
+            <figure class="author-avatar">
+                <img src="https://i0.imgs.ovh/2024/03/08/QTf8m.jpeg" alt="reop" />
+            </figure>
+        
+            <div class="author-info">
+                <h4>reop</h4>
+                <p>太菜了，懒得喷</p>
+            </div>
+        </section>
+    
+    </div>
+</main>
+
+    <footer>
+    <div class="buttons">
+        <a class="to-top" href="#"></a>
+    </div>
+    <div class="wrap min">
+        <section class="widget">
+            <div class="row">
+                <div class="col-m-4">
+                    <h3 class="title-recent">最新文章：</h3>
+                    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/Windows/e7f99fcce372.html">驱动和系统调用——Windows安全入门（三）</a></li><li class="post-list-item"><a class="post-list-link" href="/Windows/3a485e0c9d5a.html">x86保护模式——Windows安全入门（二）</a></li><li class="post-list-item"><a class="post-list-link" href="/Windows/775dd0960ce1.html">注入、劫持和Hook——Windows安全入门（一）</a></li></ul>
+                </div>
+                <div class="col-m-4">
+                    <h3 class="title-date">时光机：</h3>
+                    <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/03/">March 2024</a></li></ul>
+                </div>
+                <div class="col-m-4">
+                    <h3 class="title-tags">标签云：</h3>
+                    
+                </div>
+            </div>
+        </section>
+        <section class="sub-footer">
+            <p>© 2024 <a href="/">REOP</a>. All Rights Reserved. Theme By <a href="https://github.com/Dreamer-Paul/Hingle" target="_blank" rel="nofollow">Hingle</a>.</p>
+        </section>
+    </div>
+</footer>
+
+
+<script src="/static/kico.js"></script>
+<script src="/static/hingle.js"></script>
+
+
+<script>var hingle = new Paul_Hingle({"copyright":false,"night":false});</script>
+
+  </body>
+</html>

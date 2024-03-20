@@ -2,27 +2,27 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
-    <loc>http://reop.cc/Windows/21e1b63a3454.html</loc>
+    <loc>http://reop.cc/Windows/e7f99fcce372.html</loc>
     
-    <lastmod>2024-03-09</lastmod>
-    
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>http://reop.cc/Windows/b950d8b8f99c.html</loc>
-    
-    <lastmod>2024-03-09</lastmod>
+    <lastmod>2024-03-20</lastmod>
     
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>http://reop.cc/uncategorized/69d25199804b.html</loc>
+    <loc>http://reop.cc/Windows/3a485e0c9d5a.html</loc>
     
-    <lastmod>2023-10-24</lastmod>
+    <lastmod>2024-03-10</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>http://reop.cc/Windows/775dd0960ce1.html</loc>
+    
+    <lastmod>2024-03-10</lastmod>
     
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
@@ -31,24 +31,17 @@
 
   <url>
     <loc>http://reop.cc/</loc>
-    <lastmod>2024-03-10</lastmod>
+    <lastmod>2024-03-20</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
 
   
-  <url>
-    <loc>http://reop.cc/tags/%E6%9D%82/</loc>
-    <lastmod>2024-03-10</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
 
   
   <url>
     <loc>http://reop.cc/categories/Windows/</loc>
-    <lastmod>2024-03-10</lastmod>
+    <lastmod>2024-03-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
   </url>
