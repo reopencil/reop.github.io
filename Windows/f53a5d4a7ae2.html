@@ -3,7 +3,7 @@
   <head>
      
     <meta charset="UTF-8">
-    <title>驱动和系统调用——Windows安全入门（三） - REOP</title>
+    <title>驱动、句柄和系统调用——Windows安全入门（三） - REOP</title>
     <link rel="shortcut icon" href="/static/img/icon.png">
     <link rel="icon" href="/static/img/icon.png" sizes="192x192"/>
     
@@ -15,7 +15,7 @@
 
     <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1"/>
     <meta property="og:site_name" content="REOP">
-    <meta property="og:title" content="驱动和系统调用——Windows安全入门（三）"/>
+    <meta property="og:title" content="驱动、句柄和系统调用——Windows安全入门（三）"/>
     
 <meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="REOP" type="application/atom+xml">
 </head>
@@ -48,7 +48,7 @@
     <main>
     <div class="wrap min">
         <section class="post-title">
-            <h2>驱动和系统调用——Windows安全入门（三）</h2>
+            <h2>驱动、句柄和系统调用——Windows安全入门（三）</h2>
             <div class="post-meta">
                 <time class="date">2024.03.20</time>
             
@@ -543,7 +543,155 @@ DWORD g_flag <span class="token operator">=</span> <span class="token number">1<
  <span class="token function">system</span><span class="token punctuation">(</span><span class="token string">"pause"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
  <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h2 id="2-系统调用"><a href="#2-系统调用" class="headerlink" title="2 系统调用"></a>2 系统调用</h2><h3 id="2-1-3环调用"><a href="#2-1-3环调用" class="headerlink" title="2.1 3环调用"></a>2.1 3环调用</h3><p>分析一下kernel32.dll中的导出函数<em><strong>ReadProcessMemory</strong></em>函数，反编译伪码如下。可以看到，在此函数中又调用了导入函数（来自ntdll.dll）中的<em><strong>NtReadVirtualMemory</strong></em>函数，并没有更多的操作。<br><img src="/images/3-8.png" alt="3-8"><br>继续分析ntdll.dll中的导出函数NtReadVirtualMemory，只有四行汇编代码，给EAX寄存器赋值后就call了一个特定地址(7FFE0300h)的值，而在这个地址上的就是3环进0环所调用的API函数地址，EAX中的值标识了调用哪个0环API函数。<br><img src="/images/3-9.png" alt="3-9"></p>
+<h2 id="2-句柄表"><a href="#2-句柄表" class="headerlink" title="2 句柄表"></a>2 句柄表</h2><p>句柄表的作用是封装内核对象指针为句柄供3环使用，避免在3环下直接操作内核对象地址。</p>
+<h3 id="2-1-进程句柄表"><a href="#2-1-进程句柄表" class="headerlink" title="2.1 进程句柄表"></a>2.1 进程句柄表</h3><p>句柄结构：<br><img src="/images/3-12.png" alt="3-12"></p>
+<ul>
+<li>1：高字节给<em><strong>SetHandleInformation</strong></em>函数使用，低字节保留；</li>
+<li>2：访问掩码，给<em><strong>OpenProcess</strong></em>函数使用；</li>
+<li>3&amp;4：<ul>
+<li>第0位标识是否允许关闭此句柄，默认为1；</li>
+<li>第1位标识此句柄是否可被继承，默认为1；</li>
+<li>第2位标识关闭对象时是否产生一个审计事件，默认为0；</li>
+</ul>
+</li>
+</ul>
+<h4 id="实验4：定位句柄表"><a href="#实验4：定位句柄表" class="headerlink" title="实验4：定位句柄表"></a>实验4：定位句柄表</h4><p>编写代码，使用OpenProcess获取句柄：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdio.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;windows.h></span></span>
+
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+ DWORD PID<span class="token punctuation">;</span>
+ HANDLE hPro <span class="token operator">=</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+
+ HWND hWnd <span class="token operator">=</span> <span class="token operator">::</span><span class="token function">FindWindow</span><span class="token punctuation">(</span><span class="token constant">NULL</span><span class="token punctuation">,</span> L<span class="token string">"计算器"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token operator">::</span><span class="token function">GetWindowThreadProcessId</span><span class="token punctuation">(</span>hWnd<span class="token punctuation">,</span> <span class="token operator">&amp;</span>PID<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+ <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">int</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span>
+ <span class="token punctuation">&#123;</span>
+  hPro <span class="token operator">=</span> <span class="token operator">::</span><span class="token function">OpenProcess</span><span class="token punctuation">(</span>PROCESS_CREATE_THREAD <span class="token operator">|</span> PROCESS_VM_OPERATION <span class="token operator">|</span> PROCESS_VM_READ <span class="token operator">|</span> PROCESS_VM_WRITE<span class="token punctuation">,</span> TRUE<span class="token punctuation">,</span> PID<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"句柄：%x\n"</span><span class="token punctuation">,</span> hPro<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token punctuation">&#125;</span>
+
+ <span class="token function">getchar</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>查看进程结构体：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _EPROCESS <span class="token number">822</span>d6658
+nt<span class="token operator">!</span>_EPROCESS
+   <span class="token operator">+</span><span class="token number">0x000</span> Pcb              <span class="token operator">:</span> _KPROCESS
+   <span class="token operator">+</span><span class="token number">0x06c</span> ProcessLock      <span class="token operator">:</span> _EX_PUSH_LOCK
+   <span class="token operator">+</span><span class="token number">0x070</span> CreateTime       <span class="token operator">:</span> _LARGE_INTEGER <span class="token number">0x01da8104</span>`<span class="token number">323</span>d7d16
+   <span class="token operator">+</span><span class="token number">0x078</span> ExitTime         <span class="token operator">:</span> _LARGE_INTEGER <span class="token number">0x0</span>
+   <span class="token operator">+</span><span class="token number">0x080</span> RundownProtect   <span class="token operator">:</span> _EX_RUNDOWN_REF
+   <span class="token operator">+</span><span class="token number">0x084</span> UniqueProcessId  <span class="token operator">:</span> <span class="token number">0x00000640</span> Void
+   <span class="token operator">+</span><span class="token number">0x088</span> ActiveProcessLinks <span class="token operator">:</span> _LIST_ENTRY <span class="token punctuation">[</span> <span class="token number">0x8055b158</span> <span class="token operator">-</span> <span class="token number">0x822d79d8</span> <span class="token punctuation">]</span>
+   <span class="token operator">+</span><span class="token number">0x090</span> QuotaUsage       <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> <span class="token number">0x578</span>
+   <span class="token operator">+</span><span class="token number">0x09c</span> QuotaPeak        <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> <span class="token number">0x578</span>
+   <span class="token operator">+</span><span class="token number">0x0a8</span> CommitCharge     <span class="token operator">:</span> <span class="token number">0x5a</span>
+   <span class="token operator">+</span><span class="token number">0x0ac</span> PeakVirtualSize  <span class="token operator">:</span> <span class="token number">0xd9b000</span>
+   <span class="token operator">+</span><span class="token number">0x0b0</span> VirtualSize      <span class="token operator">:</span> <span class="token number">0xd9b000</span>
+   <span class="token operator">+</span><span class="token number">0x0b4</span> SessionProcessLinks <span class="token operator">:</span> _LIST_ENTRY <span class="token punctuation">[</span> <span class="token number">0xf8bd2014</span> <span class="token operator">-</span> <span class="token number">0x822d7a04</span> <span class="token punctuation">]</span>
+   <span class="token operator">+</span><span class="token number">0x0bc</span> DebugPort        <span class="token operator">:</span> <span class="token punctuation">(</span>null<span class="token punctuation">)</span> 
+   <span class="token operator">+</span><span class="token number">0x0c0</span> ExceptionPort    <span class="token operator">:</span> <span class="token number">0xe16659f8</span> Void
+   <span class="token operator">+</span><span class="token number">0x0c4</span> ObjectTable      <span class="token operator">:</span> <span class="token number">0xe1fdae30</span> _HANDLE_TABLE
+   <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>定位ObjectTable：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _HANDLE_TABLE e1fdae30
+nt<span class="token operator">!</span>_HANDLE_TABLE
+   <span class="token operator">+</span><span class="token number">0x000</span> TableCode        <span class="token operator">:</span> <span class="token number">0xe110d000</span>
+   <span class="token operator">+</span><span class="token number">0x004</span> QuotaProcess     <span class="token operator">:</span> <span class="token number">0x822d6658</span> _EPROCESS
+   <span class="token operator">+</span><span class="token number">0x008</span> UniqueProcessId  <span class="token operator">:</span> <span class="token number">0x00000640</span> Void
+   <span class="token operator">+</span><span class="token number">0x00c</span> HandleTableLock  <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span> _EX_PUSH_LOCK
+   <span class="token operator">+</span><span class="token number">0x01c</span> HandleTableList  <span class="token operator">:</span> _LIST_ENTRY <span class="token punctuation">[</span> <span class="token number">0x8055c448</span> <span class="token operator">-</span> <span class="token number">0xe21ed88c</span> <span class="token punctuation">]</span>
+   <span class="token operator">+</span><span class="token number">0x024</span> HandleContentionEvent <span class="token operator">:</span> _EX_PUSH_LOCK
+   <span class="token operator">+</span><span class="token number">0x028</span> DebugInfo        <span class="token operator">:</span> <span class="token punctuation">(</span>null<span class="token punctuation">)</span> 
+   <span class="token operator">+</span><span class="token number">0x02c</span> ExtraInfoPages   <span class="token operator">:</span> <span class="token number">0</span>n0
+   <span class="token operator">+</span><span class="token number">0x030</span> FirstFree        <span class="token operator">:</span> <span class="token number">0x60</span>
+   <span class="token operator">+</span><span class="token number">0x034</span> LastFree         <span class="token operator">:</span> <span class="token number">0</span>
+   <span class="token operator">+</span><span class="token number">0x038</span> NextHandleNeedingPool <span class="token operator">:</span> <span class="token number">0x800</span>
+   <span class="token operator">+</span><span class="token number">0x03c</span> HandleCount      <span class="token operator">:</span> <span class="token number">0</span>n23
+   <span class="token operator">+</span><span class="token number">0x040</span> Flags            <span class="token operator">:</span> <span class="token number">0</span>
+   <span class="token operator">+</span><span class="token number">0x040</span> StrictFIFO       <span class="token operator">:</span> <span class="token number">0</span>y0<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>根据OpenProcess返回的句柄号定位对应的句柄：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dq e110d000 <span class="token operator">+</span> <span class="token number">0x38</span> <span class="token operator">/</span> <span class="token number">4</span> <span class="token operator">*</span> <span class="token number">8</span>
+ReadVirtual<span class="token operator">:</span> e110d080 not properly sign extended
+e110d070  <span class="token number">0000003</span>a`<span class="token number">822</span>d793b <span class="token number">0000003</span>a`<span class="token number">822</span>d793b
+e110d080  <span class="token number">0000003</span>a`<span class="token number">822</span>d793b <span class="token number">0000003</span>a`<span class="token number">822</span>d793b
+e110d090  <span class="token number">0000003</span>a`<span class="token number">822</span>d793b <span class="token number">0000003</span>a`<span class="token number">822</span>d793b
+e110d0a0  <span class="token number">0000003</span>a`<span class="token number">822</span>d793b <span class="token number">0000003</span>a`<span class="token number">822</span>d793b
+e110d0b0  <span class="token number">0000003</span>a`<span class="token number">822</span>d793b <span class="token number">0000003</span>a`<span class="token number">822</span>d793b
+e110d0c0  <span class="token number">00000064</span>`<span class="token number">00000000</span> <span class="token number">00000068</span>`<span class="token number">00000000</span>
+e110d0d0  <span class="token number">0000006</span>c`<span class="token number">00000000</span> <span class="token number">00000070</span>`<span class="token number">00000000</span>
+e110d0e0  <span class="token number">00000074</span>`<span class="token number">00000000</span> <span class="token number">00000078</span>`<span class="token number">00000000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>根据句柄结构，计算出内核对象的地址为822d7938，此地址是一个0x18字节的_OBJECT_HEADER结构体，后面紧跟着对应进程的EPROCESS结构体：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _OBJECT_HEADER <span class="token number">822</span>d7938
+nt<span class="token operator">!</span>_OBJECT_HEADER
+   <span class="token operator">+</span><span class="token number">0x000</span> PointerCount     <span class="token operator">:</span> <span class="token number">0</span>n26
+   <span class="token operator">+</span><span class="token number">0x004</span> HandleCount      <span class="token operator">:</span> <span class="token number">0</span>n12
+   <span class="token operator">+</span><span class="token number">0x004</span> NextToFree       <span class="token operator">:</span> <span class="token number">0x0000000c</span> Void
+   <span class="token operator">+</span><span class="token number">0x008</span> Type             <span class="token operator">:</span> <span class="token number">0x825b9e70</span> _OBJECT_TYPE
+   <span class="token operator">+</span><span class="token number">0x00c</span> NameInfoOffset   <span class="token operator">:</span> <span class="token number">0</span> <span class="token char">''</span>
+   <span class="token operator">+</span><span class="token number">0x00d</span> HandleInfoOffset <span class="token operator">:</span> <span class="token number">0</span> <span class="token char">''</span>
+   <span class="token operator">+</span><span class="token number">0x00e</span> QuotaInfoOffset  <span class="token operator">:</span> <span class="token number">0</span> <span class="token char">''</span>
+   <span class="token operator">+</span><span class="token number">0x00f</span> Flags            <span class="token operator">:</span> <span class="token number">0x20</span> <span class="token char">' '</span>
+   <span class="token operator">+</span><span class="token number">0x010</span> ObjectCreateInfo <span class="token operator">:</span> <span class="token number">0x823117c8</span> _OBJECT_CREATE_INFORMATION
+   <span class="token operator">+</span><span class="token number">0x010</span> QuotaBlockCharged <span class="token operator">:</span> <span class="token number">0x823117c8</span> Void
+   <span class="token operator">+</span><span class="token number">0x014</span> SecurityDescriptor <span class="token operator">:</span> <span class="token number">0xe1f9e4e6</span> Void
+   <span class="token operator">+</span><span class="token number">0x018</span> Body             <span class="token operator">:</span> _QUAD<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="2-2-全局句柄表"><a href="#2-2-全局句柄表" class="headerlink" title="2.2 全局句柄表"></a>2.2 全局句柄表</h3><p>全局句柄表中存储的是每一个线程和进程对应的句柄。<br>如果全局句柄表中的句柄总数多于512，操作系统会采取多级句柄表的形式，并使用HANDLE_TABLE结构体中的TableCode低字节标识，为0时标识一级句柄表，为1时标识二级句柄表，以此类推。</p>
+<h4 id="实验5：定位全局句柄表"><a href="#实验5：定位全局句柄表" class="headerlink" title="实验5：定位全局句柄表"></a>实验5：定位全局句柄表</h4><p>获取全局句柄表地址：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dd PspCidTable
+<span class="token number">8055</span>b260  e1000898 <span class="token number">00000002</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">8055</span>b270  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">8055</span>b280  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">8055</span>b290  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">8055</span>b2a0  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">8055</span>b2b0  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">8055</span>b2c0  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span>
+<span class="token number">8055</span>b2d0  <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span> <span class="token number">00000000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>查看句柄表结构体：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _HANDLE_TABLE e1000898
+nt<span class="token operator">!</span>_HANDLE_TABLE
+   <span class="token operator">+</span><span class="token number">0x000</span> TableCode        <span class="token operator">:</span> <span class="token number">0xe1003000</span>
+   <span class="token operator">+</span><span class="token number">0x004</span> QuotaProcess     <span class="token operator">:</span> <span class="token punctuation">(</span>null<span class="token punctuation">)</span> 
+   <span class="token operator">+</span><span class="token number">0x008</span> UniqueProcessId  <span class="token operator">:</span> <span class="token punctuation">(</span>null<span class="token punctuation">)</span> 
+   <span class="token operator">+</span><span class="token number">0x00c</span> HandleTableLock  <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span> _EX_PUSH_LOCK
+   <span class="token operator">+</span><span class="token number">0x01c</span> HandleTableList  <span class="token operator">:</span> _LIST_ENTRY <span class="token punctuation">[</span> <span class="token number">0xe10008b4</span> <span class="token operator">-</span> <span class="token number">0xe10008b4</span> <span class="token punctuation">]</span>
+   <span class="token operator">+</span><span class="token number">0x024</span> HandleContentionEvent <span class="token operator">:</span> _EX_PUSH_LOCK
+   <span class="token operator">+</span><span class="token number">0x028</span> DebugInfo        <span class="token operator">:</span> <span class="token punctuation">(</span>null<span class="token punctuation">)</span> 
+   <span class="token operator">+</span><span class="token number">0x02c</span> ExtraInfoPages   <span class="token operator">:</span> <span class="token number">0</span>n0
+   <span class="token operator">+</span><span class="token number">0x030</span> FirstFree        <span class="token operator">:</span> <span class="token number">0x42c</span>
+   <span class="token operator">+</span><span class="token number">0x034</span> LastFree         <span class="token operator">:</span> <span class="token number">0x414</span>
+   <span class="token operator">+</span><span class="token number">0x038</span> NextHandleNeedingPool <span class="token operator">:</span> <span class="token number">0x800</span>
+   <span class="token operator">+</span><span class="token number">0x03c</span> HandleCount      <span class="token operator">:</span> <span class="token number">0</span>n333
+   <span class="token operator">+</span><span class="token number">0x040</span> Flags            <span class="token operator">:</span> <span class="token number">1</span>
+   <span class="token operator">+</span><span class="token number">0x040</span> StrictFIFO       <span class="token operator">:</span> <span class="token number">0</span>y1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>此时为1级句柄表，直接获取句柄即可，偏移量 &#x3D; PID &#x2F; 4 * 8：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dq e1003000 <span class="token operator">+</span> e60
+ReadVirtual<span class="token operator">:</span> e1003e60 not properly sign extended
+e1003e60  <span class="token number">00000000</span>`<span class="token number">8208</span>d489 <span class="token number">00000000</span>`<span class="token number">8233</span>ada9
+e1003e70  <span class="token number">00000000</span>`<span class="token number">8241</span>a021 <span class="token number">00000000</span>`<span class="token number">81f</span>a8b59
+e1003e80  <span class="token number">00000000</span>`<span class="token number">82336021</span> <span class="token number">00000000</span>`<span class="token number">823365</span>b9
+e1003e90  <span class="token number">00000000</span>`<span class="token number">8240</span>abd9 <span class="token number">00000000</span>`<span class="token number">8240</span>a941
+e1003ea0  <span class="token number">00000000</span>`<span class="token number">81f</span>a3021 <span class="token number">00000000</span>`<span class="token number">81f</span>a3da9
+e1003eb0  <span class="token number">00000000</span>`<span class="token number">81f</span>a3b31 <span class="token number">00000000</span>`<span class="token number">81f</span>a38b9
+e1003ec0  <span class="token number">00000000</span>`<span class="token number">81f</span>a3609 <span class="token number">00000000</span>`<span class="token number">8208</span>aa91
+e1003ed0  <span class="token number">00000000</span>`<span class="token number">82409021</span> <span class="token number">00000450</span>`<span class="token number">00000000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>根据句柄结构可以定位到地址8208d488，此时的地址就是对应的进程结构体：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _EPROCESS <span class="token number">8208</span>d488
+nt<span class="token operator">!</span>_EPROCESS
+   <span class="token operator">+</span><span class="token number">0x000</span> Pcb              <span class="token operator">:</span> _KPROCESS
+   <span class="token operator">+</span><span class="token number">0x06c</span> ProcessLock      <span class="token operator">:</span> _EX_PUSH_LOCK
+   <span class="token operator">+</span><span class="token number">0x070</span> CreateTime       <span class="token operator">:</span> _LARGE_INTEGER <span class="token number">0x01da8108</span>`<span class="token number">407f</span><span class="token number">49f</span>a
+   <span class="token operator">+</span><span class="token number">0x078</span> ExitTime         <span class="token operator">:</span> _LARGE_INTEGER <span class="token number">0x0</span>
+   <span class="token operator">+</span><span class="token number">0x080</span> RundownProtect   <span class="token operator">:</span> _EX_RUNDOWN_REF
+   <span class="token operator">+</span><span class="token number">0x084</span> UniqueProcessId  <span class="token operator">:</span> <span class="token number">0x00000730</span> Void
+   <span class="token operator">+</span><span class="token number">0x088</span> ActiveProcessLinks <span class="token operator">:</span> _LIST_ENTRY <span class="token punctuation">[</span> <span class="token number">0x8251db18</span> <span class="token operator">-</span> <span class="token number">0x821e8680</span> <span class="token punctuation">]</span>
+<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h2 id="3-系统调用"><a href="#3-系统调用" class="headerlink" title="3 系统调用"></a>3 系统调用</h2><h3 id="3-1-3环调用"><a href="#3-1-3环调用" class="headerlink" title="3.1 3环调用"></a>3.1 3环调用</h3><p>分析一下kernel32.dll中的导出函数<em><strong>ReadProcessMemory</strong></em>函数，反编译伪码如下。可以看到，在此函数中又调用了导入函数（来自ntdll.dll）中的<em><strong>NtReadVirtualMemory</strong></em>函数，并没有更多的操作。<br><img src="/images/3-8.png" alt="3-8"><br>继续分析ntdll.dll中的导出函数NtReadVirtualMemory，只有四行汇编代码，给EAX寄存器赋值后就call了一个特定地址(7FFE0300h)的值，而在这个地址上的就是3环进0环所调用的API函数地址，EAX中的值标识了调用哪个0环API函数。<br><img src="/images/3-9.png" alt="3-9"></p>
 <h4 id="模拟3环调用"><a href="#模拟3环调用" class="headerlink" title="模拟3环调用"></a>模拟3环调用</h4><p>因此我们可以在3环直接调用到0环的API，而不使用任何3环API函数。</p>
 <pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdio.h></span></span>
 <span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdlib.h></span></span>
@@ -659,7 +807,7 @@ nt<span class="token operator">!</span>_KUSER_SHARED_DATA
    <span class="token operator">+</span><span class="token number">0x320</span> TickCountQuad    <span class="token operator">:</span> Uint8B
    <span class="token operator">+</span><span class="token number">0x330</span> Cookie           <span class="token operator">:</span> Uint4B<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <h4 id="3环进0环"><a href="#3环进0环" class="headerlink" title="3环进0环"></a>3环进0环</h4><p><em><strong>KiIntSystemCall</strong></em>：如果通过中断门进0环，固定的中断号为0x2E，CS、EIP的值由中断门描述符确定，ESP、SS的值由TSS寄存器确定。进入0环后执行的函数为<em><strong>NT!KiSystemService</strong></em>。<br><em><strong>KiIntSystemCall</strong></em>：如果是通过sysenter指令进入0环，则CS、ESP、EIP全部由MSR寄存器提供，SS固定为CS+8。进入0环后执行的函数是<em><strong>NT!KiFastCallEntry</strong></em>。</p>
-<h3 id="2-2-保护现场"><a href="#2-2-保护现场" class="headerlink" title="2.2 保护现场"></a>2.2 保护现场</h3><h4 id="栈帧"><a href="#栈帧" class="headerlink" title="栈帧"></a>栈帧</h4><p>用于CPU进入0环后进行保护现场。<br><img src="/images/3-10.png" alt="3-10"></p>
+<h3 id="3-2-保护现场"><a href="#3-2-保护现场" class="headerlink" title="3.2 保护现场"></a>3.2 保护现场</h3><h4 id="栈帧"><a href="#栈帧" class="headerlink" title="栈帧"></a>栈帧</h4><p>用于CPU进入0环后进行保护现场。<br><img src="/images/3-10.png" alt="3-10"></p>
 <h4 id="KPCR"><a href="#KPCR" class="headerlink" title="KPCR"></a>KPCR</h4><p>保存和CPU相关的信息。</p>
 <pre class="line-numbers language-c" data-language="c"><code class="language-c">kd<span class="token operator">></span> dt _KPCR
 nt<span class="token operator">!</span>_KPCR
@@ -927,7 +1075,7 @@ nt<span class="token operator">!</span>_KTHREAD
    <span class="token operator">+</span><span class="token number">0x1bb</span> DisableBoost     <span class="token operator">:</span> UChar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <h4 id="SST"><a href="#SST" class="headerlink" title="SST"></a>SST</h4><p>Windows中的系统服务表（System Service Table）有两个，第一个是内核中的核心函数导出表，第二个是GUI相关的函数非导出表：<br><img src="/images/3-11.png" alt="3-11"></p>
 <h4 id="SSDT"><a href="#SSDT" class="headerlink" title="SSDT"></a>SSDT</h4><p>SSDT中一共包含4个STT，只有前两个是有效的。</p>
-<h3 id="2-3-0环调用"><a href="#2-3-0环调用" class="headerlink" title="2.3 0环调用"></a>2.3 0环调用</h3><h4 id="KiSystemService"><a href="#KiSystemService" class="headerlink" title="KiSystemService"></a>KiSystemService</h4><p>中断门进0环后调用：</p>
+<h3 id="3-3-0环调用"><a href="#3-3-0环调用" class="headerlink" title="3.3 0环调用"></a>3.3 0环调用</h3><h4 id="KiSystemService"><a href="#KiSystemService" class="headerlink" title="KiSystemService"></a>KiSystemService</h4><p>中断门进0环后调用：</p>
 <pre class="line-numbers language-nasm" data-language="nasm"><code class="language-nasm">push    <span class="token number">0</span>
 push    <span class="token register variable">ebp</span>             <span class="token comment">; 从Trap Frame+0x64开始，依次压入：</span>
                         <span class="token comment">; Errcode, EBP, EBX, ESI, EDI, 标志寄存器</span>
@@ -1046,7 +1194,7 @@ mov     <span class="token register variable">esp</span>, <span class="token reg
 mov     <span class="token register variable">ecx</span>, <span class="token register variable">ds</span>:<span class="token number">0FFDFF124h</span>
 mov     <span class="token register variable">edx</span>, <span class="token operator">[</span><span class="token register variable">ebp</span><span class="token operator">+</span><span class="token number">3Ch</span><span class="token operator">]</span>
 mov     <span class="token operator">[</span><span class="token register variable">ecx</span><span class="token operator">+</span><span class="token number">134h</span><span class="token operator">]</span>, <span class="token register variable">edx</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="2-4-实验5：驱动实现-SSDT-Hook"><a href="#2-4-实验5：驱动实现-SSDT-Hook" class="headerlink" title="2.4 实验5：驱动实现 SSDT Hook"></a>2.4 实验5：驱动实现 SSDT Hook</h3><pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntddk.h></span>    </span>
+<h3 id="3-4-实验6：驱动实现-SSDT-Hook"><a href="#3-4-实验6：驱动实现-SSDT-Hook" class="headerlink" title="3.4 实验6：驱动实现 SSDT Hook"></a>3.4 实验6：驱动实现 SSDT Hook</h3><pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntddk.h></span>    </span>
 <span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;ntstatus.h></span></span>
 
 ULONG OriginNtOpenProcess<span class="token punctuation">;</span>
@@ -1151,7 +1299,8 @@ NTSTATUS <span class="token function">DriverEntry</span><span class="token punct
     <span class="token keyword">return</span> STATUS_SUCCESS<span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span>
 <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h2 id="3-参考"><a href="#3-参考" class="headerlink" title="3 参考"></a>3 参考</h2><ul>
+
+<h2 id="4-参考"><a href="#4-参考" class="headerlink" title="4 参考"></a>4 参考</h2><ul>
 <li>羽夏的博客：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/wingsummer/p/15530605.html">https://www.cnblogs.com/wingsummer/p/15530605.html</a></li>
 <li>lzyddf的博客：<a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_41988448/category_9429987_2.html">https://blog.csdn.net/qq_41988448/category_9429987_2.html</a></li>
 <li>周壑的视频教程： <a target="_blank" rel="noopener" href="https://space.bilibili.com/37877654/channel/seriesdetail?sid=1467296">https://space.bilibili.com/37877654/channel/seriesdetail?sid=1467296</a></li>
@@ -1161,10 +1310,10 @@ NTSTATUS <span class="token function">DriverEntry</span><span class="token punct
         <section class="post-near">
             <ul>
                 
-                    <li>上一篇: 看完啦 (つд⊂)</li>
+                    <li>上一篇: <a href="/Windows/095e8ea6d26d.html">进程、线程和APC——Windows安全入门（四）</a></li>
                 
                 
-                    <li>下一篇: <a href="/Windows/3a485e0c9d5a.html">x86保护模式——Windows安全入门（二）</a></li>
+                    <li>下一篇: <a href="/Windows/ef0c23ba92f6.html">保护模式——Windows安全入门（二）</a></li>
                 
             </ul>
         </section>
@@ -1194,7 +1343,7 @@ NTSTATUS <span class="token function">DriverEntry</span><span class="token punct
             <div class="row">
                 <div class="col-m-4">
                     <h3 class="title-recent">最新文章：</h3>
-                    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/Windows/e7f99fcce372.html">驱动和系统调用——Windows安全入门（三）</a></li><li class="post-list-item"><a class="post-list-link" href="/Windows/3a485e0c9d5a.html">x86保护模式——Windows安全入门（二）</a></li><li class="post-list-item"><a class="post-list-link" href="/Windows/775dd0960ce1.html">注入、劫持和Hook——Windows安全入门（一）</a></li></ul>
+                    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/Windows/095e8ea6d26d.html">进程、线程和APC——Windows安全入门（四）</a></li><li class="post-list-item"><a class="post-list-link" href="/Windows/f53a5d4a7ae2.html">驱动、句柄和系统调用——Windows安全入门（三）</a></li><li class="post-list-item"><a class="post-list-link" href="/Windows/ef0c23ba92f6.html">保护模式——Windows安全入门（二）</a></li><li class="post-list-item"><a class="post-list-link" href="/Windows/775dd0960ce1.html">注入、劫持和Hook——Windows安全入门（一）</a></li></ul>
                 </div>
                 <div class="col-m-4">
                     <h3 class="title-date">时光机：</h3>
